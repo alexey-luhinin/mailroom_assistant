@@ -123,6 +123,16 @@ desktop.ini
 *.swo
 *~
 
+# Go
+*.exe
+*.exe~
+*.dll
+*.a
+*.o
+*.test
+*.out
+go.sum
+
 # Temporary files
 tmp/
 temp/
@@ -130,3 +140,4 @@ temp/
 *.tmp
 *.bak
 *.orig
+bash.exe.stackdump
