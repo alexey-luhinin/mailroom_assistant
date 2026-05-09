@@ -1,0 +1,66 @@
+services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mailroom
+      POSTGRES_PASSWORD: mailroom
+      POSTGRES_DB: mailroom
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailroom"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Services ──────────────────────────────────────────────────────────────
+
+  mcp-server:
+    build: ./services/mcp-server
+    ports:
+      - "8006:8006"
+    env_file: ./config/.env
+    environment:
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  sorter:
+    build: ./services/sorter
+    ports:
+      - "8001:8001"
+    env_file: ./config/.env
+    environment:
+      POSTGRES_URL: postgresql://mailroom:mailroom@postgres:5432/mailroom
+      REDIS_URL: redis://redis:6379
+      MCP_SERVER_URL: http://mcp-server:8006
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-server:
+        condition: service_started
+
+volumes:
+  postgres_data:

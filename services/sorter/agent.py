@@ -74,7 +74,7 @@ async def _classify_batch(emails: list[dict]) -> list[dict]:
         for i, e in enumerate(emails)
     )
     response = await _client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=4096,
         system=_SYSTEM,
         tools=[_TOOL],
