@@ -1,0 +1,132 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.egg-link
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+/config/
+
+# Distribution / packaging
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Jupyter / notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# AI / ML artifacts
+models/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.gguf
+*.ggml
+*.bin
+*.onnx
+*.tflite
+*.h5
+*.keras
+*.pkl
+*.pickle
+wandb/
+mlruns/
+runs/
+lightning_logs/
+outputs/
+checkpoints/
+
+# Data
+data/raw/
+data/interim/
+data/processed/
+*.csv
+*.tsv
+*.parquet
+*.jsonl
+*.arrow
+*.feather
+*.hdf5
+*.db
+*.sqlite
+*.sqlite3
+
+# Vector stores / embeddings
+chroma_db/
+faiss_index/
+*.index
+*.faiss
+
+# API keys and secrets
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.orig
