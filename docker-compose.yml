@@ -107,5 +107,13 @@ services:
       briefer:
         condition: service_started
 
+  web-ui:
+    build: ./services/web-ui
+    ports:
+      - "3000:3000"
+    depends_on:
+      lead-agent:
+        condition: service_started
+
 volumes:
   postgres_data:
