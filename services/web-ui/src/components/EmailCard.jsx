@@ -1,6 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { startDraft, getDraft } from '../api'
 
+function parseName(from) {
+  const m = from.match(/^"?([^"<]+?)"?\s*</)
+  return m ? m[1].trim() : from
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr)
+  const diffDays = Math.floor((Date.now() - d) / 86400000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'short' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 export default function EmailCard({ email }) {
   const [phase, setPhase] = useState(null) // null | 'input' | 'pending' | 'done' | 'failed'
   const [instructions, setInstructions] = useState('')
@@ -42,8 +56,8 @@ export default function EmailCard({ email }) {
   return (
     <div className="email-card">
       <div className="email-meta">
-        <span className="email-from">{email.from}</span>
-        <span className="email-date">{new Date(email.date).toLocaleDateString()}</span>
+        <span className="email-from">{parseName(email.from)}</span>
+        <span className="email-date">{formatDate(email.date)}</span>
       </div>
       <div className="email-subject">{email.subject}</div>
       <div className="email-reason">{email.reason}</div>
