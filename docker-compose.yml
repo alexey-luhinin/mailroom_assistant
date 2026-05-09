@@ -62,5 +62,24 @@ services:
       mcp-server:
         condition: service_started
 
+  briefer:
+    build: ./services/briefer
+    ports:
+      - "8005:8005"
+    env_file: ./config/.env
+    environment:
+      POSTGRES_URL: postgresql://mailroom:mailroom@postgres:5432/mailroom
+      REDIS_URL: redis://redis:6379
+      MCP_SERVER_URL: http://mcp-server:8006
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-server:
+        condition: service_started
+
 volumes:
   postgres_data:
