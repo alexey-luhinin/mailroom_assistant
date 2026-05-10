@@ -28,7 +28,7 @@ def _get_service():
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request(timeout=10))
+            creds.refresh(Request())
         else:
             raise RuntimeError(
                 f"Gmail token missing or expired. "
