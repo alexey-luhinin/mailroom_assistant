@@ -3,10 +3,13 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
 load_dotenv("config/.env")
+
+logging.basicConfig(level=logging.INFO)
 
 import asyncpg
 import httpx
@@ -111,6 +114,20 @@ async def get_draft(job_id: str):
 @app.post("/brief", status_code=202)
 async def post_brief(request: dict):
     async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(f"{BRIEFER_URL}/briefs/latest", timeout=10.0)
+            if resp.status_code == 200:
+                latest = resp.json()
+                created_at = latest.get("created_at")
+                if created_at:
+                    age = datetime.now(timezone.utc) - datetime.fromisoformat(created_at)
+                    logger.info("post_brief: latest brief created_at=%s age=%.0fs", created_at, age.total_seconds())
+                    if age.total_seconds() < 3600:
+                        logger.info("post_brief: reusing brief job_id=%s", latest["job_id"])
+                        return {"job_id": latest["job_id"], "status": "done"}
+        except Exception as e:
+            logger.warning("post_brief: could not check latest brief: %s", e)
+
         resp = await client.post(f"{BRIEFER_URL}/brief", json=request, timeout=30.0)
         resp.raise_for_status()
     return resp.json()
@@ -173,17 +190,8 @@ async def _run_morning(job_id: str, days: int) -> None:
             emails_skipped=sort["skipped"],
         )
 
-        # Step 2: brief
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{BRIEFER_URL}/brief", json={"days": days}, timeout=30.0
-            )
-            resp.raise_for_status()
-        brief_job_id = resp.json()["job_id"]
-
-        briefing = await _poll_brief(brief_job_id)
-        if briefing["status"] == "failed":
-            raise RuntimeError(briefing.get("error", "Briefing failed."))
+        # Step 2: brief (reuse if created within the last hour)
+        briefing = await _get_or_create_brief(days)
 
         await db.update_run_job(
             _pool, job_id,
@@ -195,6 +203,33 @@ async def _run_morning(job_id: str, days: int) -> None:
     except Exception as e:
         logger.error("Run job %s failed: %s", job_id, e)
         await db.update_run_job(_pool, job_id, status="failed", step="failed", error=str(e))
+
+
+async def _get_or_create_brief(days: int) -> dict:
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(f"{BRIEFER_URL}/briefs/latest", timeout=10.0)
+            logger.info("Latest brief status: %s", resp.status_code)
+            if resp.status_code == 200:
+                latest = resp.json()
+                logger.info("Latest brief response: %s", latest)
+                created_at = latest.get("created_at")
+                if created_at:
+                    age = datetime.now(timezone.utc) - datetime.fromisoformat(created_at)
+                    logger.info("Latest briefing created_at=%s age=%.0fs", created_at, age.total_seconds())
+                    if age.total_seconds() < 3600:
+                        logger.info("Reusing briefing from %s (age %.0fs)", created_at, age.total_seconds())
+                        return latest
+        except Exception as e:
+            logger.warning("Could not fetch latest brief, generating new one: %s", e)
+
+        resp = await client.post(f"{BRIEFER_URL}/brief", json={"days": days}, timeout=30.0)
+        resp.raise_for_status()
+
+    briefing = await _poll_brief(resp.json()["job_id"])
+    if briefing["status"] == "failed":
+        raise RuntimeError(briefing.get("error", "Briefing failed."))
+    return briefing
 
 
 async def _poll_brief(brief_job_id: str, timeout: int = 300) -> dict:
