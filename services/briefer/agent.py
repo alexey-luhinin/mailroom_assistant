@@ -12,21 +12,44 @@ MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8006")
 _FETCH_LABELS = {"urgent", "action_needed", "calendar", "fyi"}
 
 _SYSTEM = """\
-You are writing a morning email briefing for a busy professional.
-For each email write a 2-4 sentence summary: what it is about, what action (if any) is needed, and any key details.
-Match the language of each individual email in its summary.
-Format output exactly as the template specifies.
+You are a smart personal assistant writing a spoken-style morning briefing for Alexey.
+
+Rules:
+- Sound like a real assistant talking directly to Alexey, not a template filler.
+- Be specific: mention deadlines, expiry times, amounts, counterparty names — anything actionable.
+- For each urgent or action_needed email write a tight 2-3 sentence block: what happened, what Alexey needs to do, and by when if known.
+- ALWAYS start each email entry with the subject in bold markdown: **Subject** from Sender. This is required, never skip the bold formatting.
+- The subject must be wrapped in double asterisks like this: **Invoice overdue** from Acme Corp. Never write it as plain text.
+- After the bold subject line, write the summary on the next line as plain text.
+- Do NOT use bullet points, markdown headers, or any other formatting — only **bold** for email subjects.
+- Newsletter, promo, and spam emails: do not summarize them individually, only count them.
+- Match the language of each email in its summary (write in Russian if the email is in Russian, etc.).
+- The whole briefing should read like one coherent message, not a list.
+
+Example of a correctly formatted email entry:
+**Invoice #1234 overdue** from Acme Corp.
+Payment of $5,000 was due yesterday. Log into the billing portal and approve it today to avoid a late fee.
 """
 
 _TOOL = {
     "name": "create_briefing",
-    "description": "Return the complete morning briefing in markdown.",
+    "description": "Return the morning briefing as plain structured text.",
     "input_schema": {
         "type": "object",
         "properties": {
             "content": {
                 "type": "string",
-                "description": "Full markdown briefing following the specified template.",
+                "description": (
+                    "The full briefing text. Structure:\n"
+                    "1. Opening line: 'Good morning, Alexey. You have {total} emails today.'\n"
+                    "2. If urgent emails exist — section 'Urgent:' followed by each email on its own paragraph: "
+                    "'**[Subject]** from [Sender].\\n[2-3 sentences: context, required action, deadline if known.]'\n"
+                    "3. If action_needed emails exist — section 'Action needed:' same format.\n"
+                    "4. Closing line: '[fyi] FYI · [newsletter] newsletters · [promo] promos — nothing urgent.' "
+                    "(omit any category with count 0).\n"
+                    "5. If NO urgent or action_needed emails: replace sections 2-4 with "
+                    "'Nothing urgent today. {total} emails, all low priority.'"
+                ),
             }
         },
         "required": ["content"],
@@ -63,7 +86,7 @@ async def generate(
     summary: dict,
 ) -> str:
     if not today_emails and not previous_emails:
-        return f"# Morning Briefing — {date_str}\n\nNo emails to report."
+        return "Good morning, Alexey. Nothing urgent today. Your inbox is empty."
 
     today_emails, previous_emails = await asyncio.gather(
         _enrich(today_emails),
@@ -89,16 +112,18 @@ async def generate(
         f"Promo: {summary['promo']}, Spam: {summary['spam']}"
     )
 
+    urgent_emails    = [e for e in today_emails    if e.get("label") == "urgent"]
+    urgent_emails   += [e for e in previous_emails if e.get("label") == "urgent"]
+    action_emails    = [e for e in today_emails    if e.get("label") == "action_needed"]
+    action_emails   += [e for e in previous_emails if e.get("label") == "action_needed"]
+
     prompt = (
-        f"Generate a morning briefing for {date_str}.\n\n"
-        f"Counts: {summary_line}\n\n"
-        f"Unresolved from previous days (urgent/action_needed without a draft):\n{_fmt(previous_emails)}\n\n"
-        f"Today's emails:\n{_fmt(today_emails)}\n\n"
-        "Template:\n"
-        "# Morning Briefing — <date>\n"
-        "## Summary\n- Total / per-label counts\n"
-        "## Unresolved from previous days\n### <Label>\n- **<subject>** from <sender> (<date>)\n  <2-4 sentence summary>\n"
-        "## Today\n### <Label>\n- **<subject>** from <sender>\n  <2-4 sentence summary>"
+        f"Date: {date_str}\n"
+        f"Email counts: {summary_line}\n\n"
+        f"Urgent emails (need individual write-up):\n{_fmt(urgent_emails)}\n\n"
+        f"Action needed emails (need individual write-up):\n{_fmt(action_emails)}\n\n"
+        "Write the briefing following the tool description exactly. "
+        "Plain text only — no markdown, no bullet points, no asterisks."
     )
 
     response = await _client.messages.create(
@@ -114,4 +139,4 @@ async def generate(
             return block.input["content"]
 
     logger.warning("create_briefing tool not called")
-    return f"# Morning Briefing — {date_str}\n\nFailed to generate content."
+    return f"Good morning, Alexey. Failed to generate briefing for {date_str}."

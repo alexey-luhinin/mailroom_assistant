@@ -104,8 +104,7 @@ export default function App() {
       if (job.status === 'done') {
         clearInterval(briefPollRef.current)
         setBriefPhase(null)
-        setBriefing({ content: job.content, summary: job.summary })
-        setBriefingReady(true)
+        loadLatestBriefing()
       } else if (job.status === 'failed') {
         clearInterval(briefPollRef.current)
         setBriefPhase('failed')

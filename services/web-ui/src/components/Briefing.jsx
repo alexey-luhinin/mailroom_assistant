@@ -1,4 +1,12 @@
-import { useState } from 'react'
+const SECTION_COLORS = {
+  urgent:        '#dc2626',
+  action_needed: '#ea580c',
+}
+
+const SECTION_LABELS = {
+  urgent:        'Urgent',
+  action_needed: 'Action needed',
+}
 
 const LABEL_COLORS = {
   urgent:        '#dc2626',
@@ -12,116 +20,91 @@ const LABEL_COLORS = {
 
 const LABEL_ORDER = ['urgent', 'action_needed', 'calendar', 'fyi', 'newsletter', 'promo', 'spam']
 
-function parse(content) {
-  const lines = content.split('\n')
-  const title = (lines.find(l => l.startsWith('# ')) || '').slice(2).trim()
-  const sections = []
-  let sec = null, grp = null, em = null
+function renderBold(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/)
+  return parts.map((part, i) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      : part
+  )
+}
 
-  for (const line of lines) {
-    if (line.startsWith('## ')) {
-      const t = line.slice(3).trim()
-      if (t.startsWith('Summary')) { sec = null; continue }
-      sec = { title: t, groups: [] }
-      sections.push(sec)
-      grp = null; em = null
-    } else if (line.startsWith('### ') && sec) {
-      grp = { label: line.slice(4).trim().toLowerCase(), emails: [] }
-      sec.groups.push(grp)
-      em = null
-    } else if (line.startsWith('- ') && grp) {
-      const rest = line.slice(2)
-      const m = rest.match(/^\*\*(.+?)\*\*\s*(.*)$/)
-      const rawMeta = m ? m[2] : ''
-      em = {
-        subject: m ? m[1] : rest,
-        from: rawMeta.replace(/^from\s+/i, '').replace(/\s*\(.*?\)\s*$/, '').trim(),
-        summary: '',
-      }
-      grp.emails.push(em)
-    } else if (/^ {2,}/.test(line) && em) {
-      const t = line.trim()
-      if (t) em.summary = em.summary ? em.summary + ' ' + t : t
+function parse(content) {
+  const paragraphs = content.split(/\n\n+/).map(p => p.trim()).filter(Boolean)
+  const result = { opening: '', sections: [], body: [], closing: '' }
+
+  if (!paragraphs.length) return result
+  result.opening = paragraphs[0]
+
+  let current = null
+  for (let i = 1; i < paragraphs.length; i++) {
+    const p = paragraphs[i]
+    if (p === 'Urgent:') {
+      current = { label: 'urgent', entries: [] }
+      result.sections.push(current)
+    } else if (p === 'Action needed:') {
+      current = { label: 'action_needed', entries: [] }
+      result.sections.push(current)
+    } else if (current) {
+      current.entries.push(p)
+    } else {
+      result.body.push(p)
     }
   }
 
-  return {
-    title,
-    sections: sections.filter(s => s.groups.some(g => g.emails.length > 0)),
+  // Detect trailing "FYI · newsletters · promos" closing line
+  const lastEntries = result.sections.length
+    ? result.sections[result.sections.length - 1].entries
+    : result.body
+  if (lastEntries.length) {
+    const last = lastEntries[lastEntries.length - 1]
+    if (last.includes('·')) result.closing = lastEntries.pop()
   }
-}
 
-function EmailItem({ email }) {
-  return (
-    <div className="brief-email">
-      <div className="brief-email-top">
-        <span className="brief-email-subject">{email.subject}</span>
-        {email.from && <span className="brief-email-from">{email.from}</span>}
-      </div>
-      {email.summary && <div className="brief-email-summary">{email.summary}</div>}
-    </div>
-  )
-}
-
-function LabelGroup({ group }) {
-  const color = LABEL_COLORS[group.label] || '#6b7280'
-  return (
-    <div className="brief-group">
-      <div className="brief-group-hdr">
-        <span className="label-badge" style={{ background: color }}>
-          {group.label.replace('_', ' ')}
-        </span>
-        <span className="brief-group-count">{group.emails.length}</span>
-      </div>
-      {group.emails.map((e, i) => <EmailItem key={i} email={e} />)}
-    </div>
-  )
-}
-
-function BriefSection({ section, showTitle }) {
-  const [collapsed, setCollapsed] = useState(
-    section.title.toLowerCase().startsWith('unresolved')
-  )
-  const groups = section.groups.filter(g => g.emails.length > 0)
-  if (!groups.length) return null
-  return (
-    <div className="brief-section">
-      {showTitle && (
-        <button className="brief-section-hdr" onClick={() => setCollapsed(c => !c)}>
-          <span className="brief-section-label">{section.title}</span>
-          <span className="brief-section-arrow">{collapsed ? '▸' : '▾'}</span>
-        </button>
-      )}
-      {!collapsed && groups.map((g, i) => <LabelGroup key={i} group={g} />)}
-    </div>
-  )
+  return result
 }
 
 export default function Briefing({ briefing }) {
   const s = briefing.summary || {}
-  const { title, sections } = parse(briefing.content)
+  const { opening, sections, body, closing } = parse(briefing.content || '')
   const activeStats = LABEL_ORDER.filter(k => (s[k] || 0) > 0)
 
   return (
     <section className="briefing">
-      <div className="brief-header">
-        <span className="brief-title">{title}</span>
-        {activeStats.length > 0 && (
-          <div className="brief-stats">
-            {activeStats.map(k => (
-              <span key={k} className="brief-stat">
-                <span className="label-badge" style={{ background: LABEL_COLORS[k] }}>
-                  {k.replace('_', ' ')}
-                </span>
-                <span className="brief-stat-count">{s[k]}</span>
+      {activeStats.length > 0 && (
+        <div className="brief-stats">
+          {activeStats.map(k => (
+            <span key={k} className="brief-stat">
+              <span className="label-badge" style={{ background: LABEL_COLORS[k] }}>
+                {k.replace('_', ' ')}
               </span>
-            ))}
-          </div>
-        )}
-      </div>
+              <span className="brief-stat-count">{s[k]}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {opening && <p className="brief-opening">{opening}</p>}
+
       {sections.map((sec, i) => (
-        <BriefSection key={i} section={sec} showTitle={sections.length > 1} />
+        <div key={i} className="brief-section-block">
+          <span
+            className="brief-section-tag"
+            style={{ color: SECTION_COLORS[sec.label] }}
+          >
+            {SECTION_LABELS[sec.label] || sec.label}
+          </span>
+          {sec.entries.map((entry, j) => (
+            <p key={j} className="brief-entry">{renderBold(entry)}</p>
+          ))}
+        </div>
       ))}
+
+      {body.map((p, i) => (
+        <p key={i} className="brief-body">{p}</p>
+      ))}
+
+      {closing && <p className="brief-closing">{closing}</p>}
     </section>
   )
 }
