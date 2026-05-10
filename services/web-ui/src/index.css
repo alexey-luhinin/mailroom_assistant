@@ -98,18 +98,131 @@ body {
 .briefing {
   background: #fff;
   border-radius: 10px;
-  padding: 24px 28px;
+  padding: 20px 24px;
   margin-bottom: 28px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.briefing-content h1 { font-size: 19px; font-weight: 600; color: #18181b; margin-bottom: 16px; }
-.briefing-content h2 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
-.briefing-content h3 { font-size: 14px; font-weight: 600; margin: 14px 0 6px; color: #3f3f46; }
-.briefing-content ul  { padding-left: 18px; margin-bottom: 8px; }
-.briefing-content li  { font-size: 14px; margin-bottom: 3px; }
-.briefing-content p   { font-size: 14px; margin-bottom: 8px; color: #3f3f46; }
-.briefing-content strong { font-weight: 600; color: #18181b; }
+.brief-header {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f4f4f5;
+}
+
+.brief-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #18181b;
+  margin-bottom: 10px;
+}
+
+.brief-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.brief-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.brief-stat-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+/* Sections */
+
+.brief-section { margin-top: 16px; }
+.brief-section:first-child { margin-top: 0; }
+
+.brief-section-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid #f4f4f5;
+  padding: 10px 0 10px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.brief-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #a1a1aa;
+}
+
+.brief-section-arrow {
+  font-size: 10px;
+  color: #a1a1aa;
+}
+
+/* Label groups */
+
+.brief-group { margin-bottom: 16px; }
+.brief-group:last-child { margin-bottom: 0; }
+
+.brief-group-hdr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.brief-group-count {
+  font-size: 13px;
+  color: #71717a;
+}
+
+/* Email items */
+
+.brief-email {
+  padding: 6px 0;
+  border-bottom: 1px solid #f4f4f5;
+}
+
+.brief-email:last-child { border-bottom: none; }
+
+.brief-email-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.brief-email-subject {
+  font-size: 14px;
+  font-weight: 600;
+  color: #18181b;
+}
+
+.brief-email-from {
+  font-size: 12px;
+  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  flex-shrink: 0;
+}
+
+.brief-email-summary {
+  font-size: 13px;
+  color: #52525b;
+  line-height: 1.5;
+}
 
 /* ── Email list ──────────────────────────────────────────────────────────── */
 

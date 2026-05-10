@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { marked } from 'marked'
 import { startRun, getRun, getEmails } from './api'
+import Briefing from './components/Briefing'
 import EmailCard from './components/EmailCard'
 
 const LABEL_ORDER = ['urgent', 'action_needed', 'calendar', 'fyi', 'newsletter', 'promo', 'spam']
@@ -108,14 +108,7 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
 
-      {briefing && (
-        <section className="briefing">
-          <div
-            className="briefing-content"
-            dangerouslySetInnerHTML={{ __html: marked.parse(briefing.content) }}
-          />
-        </section>
-      )}
+      {briefing && <Briefing briefing={briefing} />}
 
       {hasEmails && (
         <section className="email-section">
