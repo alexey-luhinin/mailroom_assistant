@@ -15,14 +15,20 @@ SCOPES = [
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 TOKEN_FILE = os.path.join(_ROOT, "config", "token.json")
 
+_service = None  # built lazily on first request, never at import time
+
 
 def _get_service():
+    global _service
+    if _service is not None:
+        return _service
+
     creds = None
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            creds.refresh(Request(timeout=10))
         else:
             raise RuntimeError(
                 f"Gmail token missing or expired. "
@@ -31,7 +37,9 @@ def _get_service():
             )
         with open(TOKEN_FILE, "w") as f:
             f.write(creds.to_json())
-    return build("gmail", "v1", credentials=creds)
+
+    _service = build("gmail", "v1", credentials=creds)
+    return _service
 
 
 def fetch_emails(days: int) -> list[dict]:
