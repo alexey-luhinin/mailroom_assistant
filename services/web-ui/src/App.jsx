@@ -15,30 +15,38 @@ const LABEL_COLORS = {
   spam:          '#52525b',
 }
 
+const DAY_OPTIONS = [1, 3, 7, 14, 30]
+
 export default function App() {
   const [emails, setEmails]     = useState([])
   const [runJob, setRunJob]     = useState(null)
   const [briefing, setBriefing] = useState(null)
   const [running, setRunning]   = useState(false)
   const [error, setError]       = useState(null)
+  const [days, setDays]         = useState(1)
   const pollRef = useRef(null)
 
   useEffect(() => {
-    loadEmails()
+    loadEmails(days)
     return () => clearInterval(pollRef.current)
   }, [])
 
-  async function loadEmails() {
+  async function loadEmails(d) {
     try {
-      setEmails(await getEmails())
+      setEmails(await getEmails(d))
     } catch { /* empty on first load is fine */ }
+  }
+
+  function handleDaysChange(d) {
+    setDays(d)
+    loadEmails(d)
   }
 
   async function handleRun() {
     setRunning(true)
     setError(null)
     try {
-      const job = await startRun(1)
+      const job = await startRun(days)
       setRunJob(job)
       pollRef.current = setInterval(() => pollRun(job.job_id), 2000)
     } catch (e) {
@@ -55,7 +63,7 @@ export default function App() {
         clearInterval(pollRef.current)
         setRunning(false)
         setBriefing(job.briefing)
-        loadEmails()
+        loadEmails(days)
       } else if (job.status === 'failed') {
         clearInterval(pollRef.current)
         setRunning(false)
@@ -80,6 +88,18 @@ export default function App() {
           {running && runJob && (
             <span className="run-status">{runJob.step}…</span>
           )}
+          <div className="days-selector">
+            {DAY_OPTIONS.map(d => (
+              <button
+                key={d}
+                className={`btn-day${days === d ? ' active' : ''}`}
+                onClick={() => handleDaysChange(d)}
+                disabled={running}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
           <button className="btn-run" onClick={handleRun} disabled={running}>
             {running ? 'Running…' : 'Run'}
           </button>
@@ -99,7 +119,7 @@ export default function App() {
 
       {hasEmails && (
         <section className="email-section">
-          <h2>Inbox</h2>
+          <h2>Inbox <span className="inbox-days">· last {days} day{days !== 1 ? 's' : ''}</span></h2>
           {LABEL_ORDER.filter(l => grouped[l]).map(label => (
             <div key={label} className="label-group">
               <div className="label-group-header">

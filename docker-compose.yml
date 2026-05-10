@@ -81,6 +81,25 @@ services:
       mcp-server:
         condition: service_started
 
+  drafter:
+    build: ./services/drafter
+    ports:
+      - "8003:8003"
+    env_file: ./config/.env
+    environment:
+      POSTGRES_URL: postgresql://mailroom:mailroom@postgres:5432/mailroom
+      REDIS_URL: redis://redis:6379
+      MCP_SERVER_URL: http://mcp-server:8006
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-server:
+        condition: service_started
+
   lead-agent:
     build: ./services/lead-agent
     ports:
@@ -105,6 +124,8 @@ services:
       sorter:
         condition: service_started
       briefer:
+        condition: service_started
+      drafter:
         condition: service_started
 
   web-ui:

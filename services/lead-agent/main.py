@@ -187,17 +187,35 @@ async def _poll_brief(brief_job_id: str, timeout: int = 300) -> dict:
     raise TimeoutError(f"Brief job {brief_job_id} timed out after {timeout}s.")
 
 
-async def _run_draft(job_id: str, email_id: str, instructions: str) -> None:
-    try:
-        # Step 1: research
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{RESEARCHER_URL}/research",
-                json={"email_id": email_id},
-                timeout=60.0,
+async def _poll_drafter(drafter_job_id: str, timeout: int = 120) -> dict:
+    async with httpx.AsyncClient() as client:
+        for _ in range(timeout // 2):
+            resp = await client.get(
+                f"{DRAFTER_URL}/draft/{drafter_job_id}", timeout=10.0
             )
             resp.raise_for_status()
-        context = resp.json()
+            data = resp.json()
+            if data["status"] in ("done", "failed"):
+                return data
+            await asyncio.sleep(2)
+    raise TimeoutError(f"Drafter job {drafter_job_id} timed out after {timeout}s.")
+
+
+async def _run_draft(job_id: str, email_id: str, instructions: str) -> None:
+    try:
+        # Step 1: research (optional — skipped if researcher is unavailable)
+        context: dict = {}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{RESEARCHER_URL}/research",
+                    json={"email_id": email_id},
+                    timeout=60.0,
+                )
+                resp.raise_for_status()
+            context = resp.json()
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            logger.warning("Researcher unavailable, skipping for draft job %s", job_id)
 
         await db.update_draft_job(_pool, job_id, step="drafting")
 
@@ -209,21 +227,34 @@ async def _run_draft(job_id: str, email_id: str, instructions: str) -> None:
                 timeout=60.0,
             )
             resp.raise_for_status()
-        draft = resp.json()
+        drafter_job_id = resp.json()["job_id"]
+
+        drafter_result = await _poll_drafter(drafter_job_id)
+        if drafter_result["status"] == "failed":
+            raise RuntimeError(drafter_result.get("error", "Drafting failed."))
+
+        draft = {
+            "draft_id": drafter_result.get("draft_id"),
+            "subject":  drafter_result.get("subject"),
+            "body":     drafter_result.get("body"),
+            "language": drafter_result.get("language"),
+        }
 
         await db.update_draft_job(_pool, job_id, step="reviewing")
 
-        # Step 3: review
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{CRITIC_URL}/review",
-                json={"draft": draft, "instructions": instructions},
-                timeout=60.0,
-            )
-            resp.raise_for_status()
-        reviewed = resp.json()
-
-        final_draft = reviewed.get("draft", draft)
+        # Step 3: review (optional — skipped if critic is unavailable or errors)
+        final_draft = draft
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{CRITIC_URL}/review",
+                    json={"draft": draft, "instructions": instructions},
+                    timeout=60.0,
+                )
+                resp.raise_for_status()
+            final_draft = resp.json().get("draft", draft)
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.HTTPStatusError) as e:
+            logger.warning("Critic unavailable, skipping for draft job %s: %s", job_id, e)
         await db.update_draft_job(
             _pool, job_id, status="done", step="done", draft=final_draft
         )

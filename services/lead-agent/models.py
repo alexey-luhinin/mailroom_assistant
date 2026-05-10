@@ -42,10 +42,10 @@ class RunJobResponse(BaseModel):
 
 
 class DraftResult(BaseModel):
-    draft_id: str
-    subject: str
-    body: str
-    language: str
+    draft_id: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    language: Optional[str] = None
 
 
 class DraftJobResponse(BaseModel):

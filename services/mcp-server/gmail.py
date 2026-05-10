@@ -72,10 +72,12 @@ def fetch_email(email_id: str) -> dict | None:
 
 def create_draft(to: str, subject: str, body: str, thread_id: str | None = None) -> str:
     from email.mime.text import MIMEText
+    from email.utils import parseaddr
 
+    _, addr = parseaddr(to)
     service = _get_service()
     message = MIMEText(body)
-    message["to"] = to
+    message["to"] = addr or to
     message["subject"] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
