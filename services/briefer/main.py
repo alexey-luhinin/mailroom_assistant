@@ -114,6 +114,7 @@ async def _run_brief(job_id: str, days: int) -> None:
         now = datetime.now(timezone.utc)
         date_str = now.strftime(f"%B {now.day}, %Y")
         content = await agent.generate(date_str, today_emails, previous_emails, summary)
+        cache.invalidate_latest()
         await db.update_job(_pool, job_id, "done", content=content, summary=summary)
     except Exception as e:
         logger.error("Brief job %s failed: %s", job_id, e)

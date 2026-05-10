@@ -49,6 +49,13 @@ def set_latest(brief: dict) -> None:
     _set("briefer:briefs:latest", brief)
 
 
+def invalidate_latest() -> None:
+    try:
+        _get_client().delete("briefer:briefs:latest")
+    except Exception as e:
+        logger.warning("Redis delete failed: %s", e)
+
+
 def get_briefs(limit: int) -> list[dict] | None:
     return _get(f"briefer:briefs:limit:{limit}")
 
