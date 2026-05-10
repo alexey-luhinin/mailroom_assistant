@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { startRun, getRun, getEmails } from './api'
+import { startRun, getRun, getEmails, getLatestBriefing, startBrief, getBrief } from './api'
 import Briefing from './components/Briefing'
 import EmailCard from './components/EmailCard'
 
@@ -18,23 +18,34 @@ const LABEL_COLORS = {
 const DAY_OPTIONS = [1, 3, 7, 14, 30]
 
 export default function App() {
-  const [emails, setEmails]     = useState([])
-  const [runJob, setRunJob]     = useState(null)
-  const [briefing, setBriefing] = useState(null)
-  const [running, setRunning]   = useState(false)
-  const [error, setError]       = useState(null)
-  const [days, setDays]         = useState(1)
-  const pollRef = useRef(null)
+  const [emails, setEmails]               = useState([])
+  const [days, setDays]                   = useState(1)
+  const [briefing, setBriefing]           = useState(null)
+  const [briefingReady, setBriefingReady] = useState(false)
+  const [syncPhase, setSyncPhase]         = useState(null)   // null | 'pending' | 'failed'
+  const [briefPhase, setBriefPhase]       = useState(null)   // null | 'pending' | 'failed'
+  const [syncStep, setSyncStep]           = useState('')
+  const [error, setError]                 = useState(null)
+
+  const syncPollRef  = useRef(null)
+  const briefPollRef = useRef(null)
 
   useEffect(() => {
     loadEmails(days)
-    return () => clearInterval(pollRef.current)
+    loadLatestBriefing()
+    return () => {
+      clearInterval(syncPollRef.current)
+      clearInterval(briefPollRef.current)
+    }
   }, [])
 
   async function loadEmails(d) {
-    try {
-      setEmails(await getEmails(d))
-    } catch { /* empty on first load is fine */ }
+    try { setEmails(await getEmails(d)) } catch { /* silent on first load */ }
+  }
+
+  async function loadLatestBriefing() {
+    try { setBriefing(await getLatestBriefing()) } catch { /* 404 = no briefing yet */ }
+    setBriefingReady(true)
   }
 
   function handleDaysChange(d) {
@@ -42,35 +53,68 @@ export default function App() {
     loadEmails(d)
   }
 
-  async function handleRun() {
-    setRunning(true)
+  // ── Sync ────────────────────────────────────────────────────────────────────
+
+  async function handleSync() {
+    setSyncPhase('pending')
+    setSyncStep('sorting')
     setError(null)
     try {
       const job = await startRun(days)
-      setRunJob(job)
-      pollRef.current = setInterval(() => pollRun(job.job_id), 2000)
+      syncPollRef.current = setInterval(() => pollSync(job.job_id), 2000)
     } catch (e) {
       setError(e.message)
-      setRunning(false)
+      setSyncPhase(null)
     }
   }
 
-  async function pollRun(jobId) {
+  async function pollSync(jobId) {
     try {
       const job = await getRun(jobId)
-      setRunJob(job)
+      setSyncStep(job.step)
       if (job.status === 'done') {
-        clearInterval(pollRef.current)
-        setRunning(false)
-        setBriefing(job.briefing)
+        clearInterval(syncPollRef.current)
+        setSyncPhase(null)
         loadEmails(days)
       } else if (job.status === 'failed') {
-        clearInterval(pollRef.current)
-        setRunning(false)
-        setError(job.error || 'Morning run failed.')
+        clearInterval(syncPollRef.current)
+        setSyncPhase('failed')
+        setError(job.error || 'Sync failed.')
       }
     } catch { /* keep polling on transient errors */ }
   }
+
+  // ── Briefing ─────────────────────────────────────────────────────────────────
+
+  async function handleBrief() {
+    setBriefPhase('pending')
+    setError(null)
+    try {
+      const job = await startBrief(days)
+      briefPollRef.current = setInterval(() => pollBrief(job.job_id), 2000)
+    } catch (e) {
+      setError(e.message)
+      setBriefPhase(null)
+    }
+  }
+
+  async function pollBrief(jobId) {
+    try {
+      const job = await getBrief(jobId)
+      if (job.status === 'done') {
+        clearInterval(briefPollRef.current)
+        setBriefPhase(null)
+        setBriefing({ content: job.content, summary: job.summary })
+        setBriefingReady(true)
+      } else if (job.status === 'failed') {
+        clearInterval(briefPollRef.current)
+        setBriefPhase('failed')
+        setError(job.error || 'Briefing failed.')
+      }
+    } catch { /* keep polling on transient errors */ }
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   const grouped = LABEL_ORDER.reduce((acc, label) => {
     const group = emails.filter(e => e.label === label)
@@ -79,14 +123,18 @@ export default function App() {
   }, {})
 
   const hasEmails = Object.keys(grouped).length > 0
+  const busy = syncPhase === 'pending' || briefPhase === 'pending'
 
   return (
     <div className="app">
       <header className="app-header">
         <h1>Mailroom</h1>
         <div className="header-right">
-          {running && runJob && (
-            <span className="run-status">{runJob.step}…</span>
+          {syncPhase === 'pending' && (
+            <span className="run-status">{syncStep}…</span>
+          )}
+          {briefPhase === 'pending' && (
+            <span className="run-status">briefing…</span>
           )}
           <div className="days-selector">
             {DAY_OPTIONS.map(d => (
@@ -94,20 +142,28 @@ export default function App() {
                 key={d}
                 className={`btn-day${days === d ? ' active' : ''}`}
                 onClick={() => handleDaysChange(d)}
-                disabled={running}
+                disabled={busy}
               >
                 {d}d
               </button>
             ))}
           </div>
-          <button className="btn-run" onClick={handleRun} disabled={running}>
-            {running ? 'Running…' : 'Run'}
+          <button className="btn-brief" onClick={handleBrief} disabled={briefPhase === 'pending'}>
+            {briefPhase === 'pending' ? 'Briefing…' : 'Briefing'}
+          </button>
+          <button className="btn-run" onClick={handleSync} disabled={syncPhase === 'pending'}>
+            {syncPhase === 'pending' ? 'Syncing…' : 'Sync'}
           </button>
         </div>
       </header>
 
       {error && <div className="error">{error}</div>}
 
+      {briefingReady && !briefing && (
+        <div className="brief-placeholder">
+          No briefing yet. Click <strong>Briefing</strong> to generate.
+        </div>
+      )}
       {briefing && <Briefing briefing={briefing} />}
 
       {hasEmails && (
@@ -132,9 +188,9 @@ export default function App() {
         </section>
       )}
 
-      {!hasEmails && !running && (
+      {!hasEmails && !busy && (
         <div className="empty">
-          No emails yet. Click <strong>Run</strong> to fetch and classify your inbox.
+          No emails yet. Click <strong>Sync</strong> to fetch and classify your inbox.
         </div>
       )}
     </div>

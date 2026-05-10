@@ -108,6 +108,30 @@ async def get_draft(job_id: str):
     return job
 
 
+@app.post("/brief", status_code=202)
+async def post_brief(request: dict):
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(f"{BRIEFER_URL}/brief", json=request, timeout=30.0)
+        resp.raise_for_status()
+    return resp.json()
+
+
+@app.get("/brief/{job_id}")
+async def get_brief(job_id: str):
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{BRIEFER_URL}/brief/{job_id}", timeout=10.0)
+        resp.raise_for_status()
+    return resp.json()
+
+
+@app.get("/briefs/latest")
+async def get_latest_brief():
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{BRIEFER_URL}/briefs/latest", timeout=10.0)
+        resp.raise_for_status()
+    return resp.json()
+
+
 @app.get("/emails")
 async def get_emails(label: str | None = None, days: int = 7):
     if not 1 <= days <= 30:

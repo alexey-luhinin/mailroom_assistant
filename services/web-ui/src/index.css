@@ -82,6 +82,20 @@ body {
 .btn-run:hover:not(:disabled) { opacity: 0.85; }
 .btn-run:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.btn-brief {
+  padding: 8px 20px;
+  background: #fff;
+  color: #18181b;
+  border: 1px solid #d4d4d8;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-brief:hover:not(:disabled) { background: #f4f4f5; }
+.btn-brief:disabled { opacity: 0.45; cursor: not-allowed; }
+
 /* ── Error banner ────────────────────────────────────────────────────────── */
 
 .error {
@@ -378,4 +392,15 @@ body {
   padding: 56px 16px;
   color: #71717a;
   font-size: 15px;
+}
+
+.brief-placeholder {
+  text-align: center;
+  padding: 20px 16px;
+  color: #71717a;
+  font-size: 14px;
+  background: #fff;
+  border-radius: 10px;
+  margin-bottom: 28px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }

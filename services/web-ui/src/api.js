@@ -24,6 +24,17 @@ export const getEmails = (days = 7, label = null) => {
   return request(`/emails?${params}`)
 }
 
+export const getLatestBriefing = () => request('/briefs/latest')
+
+export const startBrief = (days = 1) =>
+  request('/brief', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days }),
+  })
+
+export const getBrief = jobId => request(`/brief/${jobId}`)
+
 export const startDraft = (emailId, instructions = '') =>
   request('/draft', {
     method: 'POST',
