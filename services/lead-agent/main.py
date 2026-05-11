@@ -170,7 +170,10 @@ async def post_brief(request: dict):
 async def get_brief(job_id: str):
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{BRIEFER_URL}/brief/{job_id}", timeout=10.0)
-        resp.raise_for_status()
+    if 400 <= resp.status_code < 500:
+        raise HTTPException(status_code=resp.status_code,
+                            detail=resp.json().get("detail", resp.text))
+    resp.raise_for_status()
     return resp.json()
 
 
@@ -178,7 +181,10 @@ async def get_brief(job_id: str):
 async def get_latest_brief():
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{BRIEFER_URL}/briefs/latest", timeout=10.0)
-        resp.raise_for_status()
+    if 400 <= resp.status_code < 500:
+        raise HTTPException(status_code=resp.status_code,
+                            detail=resp.json().get("detail", resp.text))
+    resp.raise_for_status()
     return resp.json()
 
 
