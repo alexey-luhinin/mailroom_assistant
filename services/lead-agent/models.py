@@ -10,6 +10,10 @@ class RunRequest(BaseModel):
     days: int = 1
 
 
+class BriefRequest(BaseModel):
+    days: int = 1
+
+
 class DraftRequest(BaseModel):
     email_id: str
     instructions: str = ""

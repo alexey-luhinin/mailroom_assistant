@@ -29,19 +29,21 @@ _scheduler: AsyncIOScheduler | None = None
 async def lifespan(app: FastAPI):
     global _pool, _scheduler
     _pool = await asyncpg.create_pool(os.getenv("POSTGRES_URL"))
-    await db.ensure_table(_pool)
+    try:
+        await db.ensure_table(_pool)
 
-    _scheduler = AsyncIOScheduler()
-    _scheduler.add_job(
-        _run_scheduled_brief,
-        CronTrigger.from_crontab(os.getenv("BRIEF_SCHEDULE", "0 8 * * *")),
-    )
-    _scheduler.start()
+        _scheduler = AsyncIOScheduler()
+        _scheduler.add_job(
+            _run_scheduled_brief,
+            CronTrigger.from_crontab(os.getenv("BRIEF_SCHEDULE", "0 8 * * *")),
+        )
+        _scheduler.start()
 
-    yield
-
-    _scheduler.shutdown(wait=False)
-    await _pool.close()
+        yield
+    finally:
+        if _scheduler:
+            _scheduler.shutdown(wait=False)
+        await _pool.close()
 
 
 app = FastAPI(title="Briefer", lifespan=lifespan)

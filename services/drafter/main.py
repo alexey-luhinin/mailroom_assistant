@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8006")
 
+_T_SHORT = 30.0
+
 _pool: asyncpg.Pool | None = None
 
 
@@ -28,9 +30,11 @@ _pool: asyncpg.Pool | None = None
 async def lifespan(app: FastAPI):
     global _pool
     _pool = await asyncpg.create_pool(os.getenv("POSTGRES_URL"))
-    await db.ensure_table(_pool)
-    yield
-    await _pool.close()
+    try:
+        await db.ensure_table(_pool)
+        yield
+    finally:
+        await _pool.close()
 
 
 app = FastAPI(title="Drafter", lifespan=lifespan)
@@ -78,7 +82,7 @@ async def list_drafts(email_id: str | None = None):
 async def _run_draft(job_id: str, email_id: str, instructions: str) -> None:
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{MCP_URL}/emails/{email_id}", timeout=30.0)
+            resp = await client.get(f"{MCP_URL}/emails/{email_id}", timeout=_T_SHORT)
             resp.raise_for_status()
         email = resp.json()
 

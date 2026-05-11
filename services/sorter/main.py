@@ -16,6 +16,8 @@ from models import ClassifiedEmail, SortRequest, SortResponse
 
 MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8006")
 
+_T_SORT = 30.0
+
 _pool: asyncpg.Pool | None = None
 
 
@@ -23,9 +25,11 @@ _pool: asyncpg.Pool | None = None
 async def lifespan(app: FastAPI):
     global _pool
     _pool = await asyncpg.create_pool(os.getenv("POSTGRES_URL"))
-    await db.ensure_table(_pool)
-    yield
-    await _pool.close()
+    try:
+        await db.ensure_table(_pool)
+        yield
+    finally:
+        await _pool.close()
 
 
 app = FastAPI(title="Sorter", lifespan=lifespan)
@@ -43,7 +47,7 @@ async def sort(request: SortRequest):
 
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            f"{MCP_URL}/emails", params={"days": request.days}, timeout=30.0
+            f"{MCP_URL}/emails", params={"days": request.days}, timeout=_T_SORT
         )
         resp.raise_for_status()
     raw_emails: list[dict] = resp.json()

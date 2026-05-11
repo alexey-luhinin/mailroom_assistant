@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(docker run *)"
+      "PowerShell(docker run *)",
+      "Bash(xargs grep -l \"from mcp_server\\\\|import mcp_server\")"
     ]
   }
 }

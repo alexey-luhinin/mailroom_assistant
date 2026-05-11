@@ -138,5 +138,4 @@ async def generate(
         if block.type == "tool_use" and block.name == "create_briefing":
             return block.input["content"]
 
-    logger.warning("create_briefing tool not called")
-    return f"Good morning, Alexey. Failed to generate briefing for {date_str}."
+    raise RuntimeError("create_briefing tool not called")

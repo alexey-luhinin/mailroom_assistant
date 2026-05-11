@@ -93,8 +93,9 @@ async def _classify_batch(emails: list[dict]) -> list[dict]:
                 for c in block.input["classifications"]
             ]
     lost_ids = [e["id"] for e in emails]
-    logger.warning("classify_emails tool not called; %d email(s) lost: %s", len(lost_ids), lost_ids)
-    return []
+    raise RuntimeError(
+        f"classify_emails tool not called; {len(lost_ids)} email(s) lost: {lost_ids}"
+    )
 
 
 def _chunks(lst: list, n: int):
