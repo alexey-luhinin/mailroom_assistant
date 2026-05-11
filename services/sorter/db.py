@@ -51,12 +51,12 @@ async def get_emails(pool: asyncpg.Pool, days: int, label: str | None) -> list[d
     since = datetime.now(timezone.utc) - timedelta(days=days)
     if label:
         rows = await pool.fetch(
-            "SELECT * FROM emails WHERE classified_at >= $1 AND label = $2 ORDER BY priority ASC",
+            "SELECT * FROM emails WHERE date::timestamptz >= $1 AND label = $2 ORDER BY priority ASC",
             since, label,
         )
     else:
         rows = await pool.fetch(
-            "SELECT * FROM emails WHERE classified_at >= $1 ORDER BY priority ASC",
+            "SELECT * FROM emails WHERE date::timestamptz >= $1 ORDER BY priority ASC",
             since,
         )
     return [_to_dict(r) for r in rows]
