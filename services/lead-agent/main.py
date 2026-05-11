@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 import cache
 import db
 from models import (
+    ApproveRequest,
     DraftJobResponse,
     DraftRequest,
     RunJobResponse,
@@ -109,6 +110,38 @@ async def get_draft(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found.")
     return job
+
+
+@app.post("/approve/{job_id}")
+async def approve_draft(job_id: str, request: ApproveRequest):
+    job = await db.get_draft_job(_pool, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Draft job not found.")
+    if job["status"] != "done":
+        raise HTTPException(status_code=422, detail="Draft is not ready.")
+
+    draft = job.get("draft") or {}
+    subject = request.subject if request.subject is not None else draft.get("subject", "")
+    body    = request.body    if request.body    is not None else draft.get("body", "")
+
+    async with httpx.AsyncClient() as client:
+        email_resp = await client.get(f"{MCP_URL}/emails/{job['email_id']}", timeout=10.0)
+        email_resp.raise_for_status()
+        email = email_resp.json()
+
+        draft_resp = await client.post(
+            f"{MCP_URL}/drafts",
+            json={
+                "to":        email.get("from", ""),
+                "subject":   subject,
+                "body":      body,
+                "thread_id": email.get("thread_id"),
+            },
+            timeout=30.0,
+        )
+        draft_resp.raise_for_status()
+
+    return {"draft_id": draft_resp.json()["draft_id"]}
 
 
 @app.post("/brief", status_code=202)

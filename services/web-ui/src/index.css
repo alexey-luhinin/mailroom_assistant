@@ -338,6 +338,68 @@ body {
   color: #3f3f46;
 }
 
+.draft-panel-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft-edit-subject {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  outline: none;
+  background: #fff;
+}
+.draft-edit-subject:focus { border-color: #a1a1aa; }
+.draft-edit-subject:disabled { background: #f9f9fa; color: #71717a; }
+
+.draft-edit-body {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  background: #fff;
+}
+.draft-edit-body:focus { border-color: #a1a1aa; }
+.draft-edit-body:disabled { background: #f9f9fa; color: #71717a; }
+
+.draft-approve-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-approve {
+  padding: 6px 16px;
+  background: #18181b;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-approve:hover:not(:disabled) { opacity: 0.85; }
+.btn-approve:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.draft-saved {
+  font-size: 13px;
+  color: #16a34a;
+  font-weight: 500;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 
 .empty {

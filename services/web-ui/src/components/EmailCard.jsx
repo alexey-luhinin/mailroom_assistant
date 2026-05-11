@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { startDraft, getDraft } from '../api'
+import { startDraft, getDraft, approveDraft } from '../api'
 
 function parseName(from) {
   const m = from.match(/^"?([^"<]+?)"?\s*</)
@@ -16,12 +16,15 @@ function formatDate(dateStr) {
 }
 
 export default function EmailCard({ email }) {
-  const [phase, setPhase] = useState(null) // null | 'input' | 'pending' | 'done' | 'failed'
+  const [phase, setPhase]               = useState(null) // null | 'input' | 'pending' | 'done' | 'failed'
   const [instructions, setInstructions] = useState('')
-  const [step, setStep] = useState(null)
-  const [draft, setDraft] = useState(null)
-  const [draftError, setDraftError] = useState(null)
-  const [showDraft, setShowDraft] = useState(false)
+  const [step, setStep]                 = useState(null)
+  const [jobId, setJobId]               = useState(null)
+  const [editSubject, setEditSubject]   = useState('')
+  const [editBody, setEditBody]         = useState('')
+  const [approvePhase, setApprovePhase] = useState(null) // null | 'pending' | 'done' | 'failed'
+  const [approveError, setApproveError] = useState(null)
+  const [draftError, setDraftError]     = useState(null)
   const pollRef = useRef(null)
 
   useEffect(() => () => clearInterval(pollRef.current), [])
@@ -31,15 +34,16 @@ export default function EmailCard({ email }) {
     setStep('researching')
     try {
       const job = await startDraft(email.id, instructions)
+      setJobId(job.job_id)
       pollRef.current = setInterval(async () => {
         try {
           const result = await getDraft(job.job_id)
           setStep(result.step)
           if (result.status === 'done') {
             clearInterval(pollRef.current)
-            setDraft(result.draft)
+            setEditSubject(result.draft?.subject || '')
+            setEditBody(result.draft?.body || '')
             setPhase('done')
-            setShowDraft(true)
           } else if (result.status === 'failed') {
             clearInterval(pollRef.current)
             setDraftError(result.error || 'Draft failed.')
@@ -50,6 +54,18 @@ export default function EmailCard({ email }) {
     } catch (e) {
       setDraftError(e.message)
       setPhase('failed')
+    }
+  }
+
+  async function handleApprove() {
+    setApprovePhase('pending')
+    setApproveError(null)
+    try {
+      await approveDraft(jobId, editSubject, editBody)
+      setApprovePhase('done')
+    } catch (e) {
+      setApproveError(e.message)
+      setApprovePhase('failed')
     }
   }
 
@@ -88,24 +104,50 @@ export default function EmailCard({ email }) {
           <span className="draft-status">Drafting… ({step})</span>
         )}
 
-        {phase === 'done' && (
-          <button className="btn-view-draft" onClick={() => setShowDraft(v => !v)}>
-            {showDraft ? 'Hide draft' : 'View draft'}
-          </button>
-        )}
-
         {phase === 'failed' && (
           <span className="draft-error">{draftError}</span>
         )}
       </div>
 
-      {showDraft && draft && (
+      {phase === 'done' && (
         <div className="draft-panel">
           <div className="draft-panel-header">
-            <strong>{draft.subject}</strong>
-            <button className="draft-panel-close" onClick={() => setShowDraft(false)}>✕</button>
+            <strong>Draft reply</strong>
+            <button className="draft-panel-close" onClick={() => setPhase(null)}>✕</button>
           </div>
-          <pre className="draft-body">{draft.body}</pre>
+          <div className="draft-panel-body">
+            <input
+              className="draft-edit-subject"
+              value={editSubject}
+              onChange={e => setEditSubject(e.target.value)}
+              disabled={approvePhase === 'pending' || approvePhase === 'done'}
+            />
+            <textarea
+              className="draft-edit-body"
+              value={editBody}
+              onChange={e => setEditBody(e.target.value)}
+              rows={10}
+              disabled={approvePhase === 'pending' || approvePhase === 'done'}
+            />
+            <div className="draft-approve-row">
+              {approvePhase === 'done' ? (
+                <span className="draft-saved">Saved to Gmail Drafts</span>
+              ) : (
+                <>
+                  <button
+                    className="btn-approve"
+                    onClick={handleApprove}
+                    disabled={approvePhase === 'pending'}
+                  >
+                    {approvePhase === 'pending' ? 'Saving…' : 'Approve'}
+                  </button>
+                  {approvePhase === 'failed' && (
+                    <span className="draft-error">{approveError}</span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -15,6 +15,11 @@ class DraftRequest(BaseModel):
     instructions: str = ""
 
 
+class ApproveRequest(BaseModel):
+    subject: Optional[str] = None
+    body: Optional[str] = None
+
+
 class BriefingSummary(BaseModel):
     total: int
     urgent: int

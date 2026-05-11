@@ -85,25 +85,10 @@ async def _run_draft(job_id: str, email_id: str, instructions: str) -> None:
         style_profile = _load_style_profile()
         result = await agent.generate(email, instructions, style_profile)
 
-        async with httpx.AsyncClient() as client:
-            draft_resp = await client.post(
-                f"{MCP_URL}/drafts",
-                json={
-                    "to": email.get("from", ""),
-                    "subject": result["subject"],
-                    "body": result["body"],
-                    "thread_id": email.get("thread_id"),
-                },
-                timeout=30.0,
-            )
-            draft_resp.raise_for_status()
-        draft_id = draft_resp.json()["draft_id"]
-
         await db.update_job(
             _pool,
             job_id,
             "done",
-            draft_id=draft_id,
             subject=result["subject"],
             body=result["body"],
             language=result["language"],

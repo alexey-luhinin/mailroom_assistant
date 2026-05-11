@@ -134,9 +134,10 @@ def _draft_to_dict(row: asyncpg.Record) -> dict:
     if isinstance(draft, str):
         draft = json.loads(draft)
     return {
-        "job_id": row["job_id"],
-        "status": row["status"],
-        "step":   row["step"],
-        "draft":  draft,
-        "error":  row["error"],
+        "job_id":   row["job_id"],
+        "status":   row["status"],
+        "step":     row["step"],
+        "email_id": row["email_id"],
+        "draft":    draft,
+        "error":    row["error"],
     }

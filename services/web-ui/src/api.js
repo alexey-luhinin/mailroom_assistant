@@ -43,3 +43,10 @@ export const startDraft = (emailId, instructions = '') =>
   })
 
 export const getDraft = jobId => request(`/draft/${jobId}`)
+
+export const approveDraft = (jobId, subject, body) =>
+  request(`/approve/${jobId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, body }),
+  })
