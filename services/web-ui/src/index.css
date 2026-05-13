@@ -452,21 +452,26 @@ body {
   font-weight: 600;
 }
 
-.cleanup-sender {
+.cleanup-name {
   font-size: 14px;
-  font-weight: 500;
-  color: #3f3f46;
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: #18181b;
+  margin-bottom: 3px;
 }
 
-.cleanup-stats {
+.cleanup-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cleanup-stats { font-size: 13px; color: #71717a; }
+
+.cleanup-link {
   font-size: 13px;
   color: #71717a;
-  margin-bottom: 4px;
-}
-
-.cleanup-action {
-  margin-top: 10px;
+  text-decoration: underline;
 }
 
 /* ── Empty states ────────────────────────────────────────────────────────── */
