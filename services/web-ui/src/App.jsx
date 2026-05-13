@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { startRun, getRun, getEmails, getLatestBriefing, startBrief, getBrief } from './api'
 import Briefing from './components/Briefing'
+import Cleanup from './components/Cleanup'
 import EmailCard from './components/EmailCard'
 
-const LABEL_ORDER = ['urgent', 'action_needed', 'calendar', 'fyi', 'newsletter', 'promo', 'spam']
-
+const LABEL_ORDER  = ['urgent', 'action_needed', 'calendar', 'fyi', 'newsletter', 'promo', 'spam']
 const LABEL_COLORS = {
   urgent:        '#dc2626',
   action_needed: '#ea580c',
@@ -14,17 +14,16 @@ const LABEL_COLORS = {
   promo:         '#7c3aed',
   spam:          '#52525b',
 }
-
 const DAY_OPTIONS = [1, 3, 7, 14, 30]
 
 export default function App() {
+  const [section, setSection]             = useState('inbox')
   const [emails, setEmails]               = useState([])
   const [days, setDays]                   = useState(1)
   const [briefing, setBriefing]           = useState(null)
   const [briefingReady, setBriefingReady] = useState(false)
   const [syncPhase, setSyncPhase]         = useState(null)   // null | 'pending' | 'failed'
   const [briefPhase, setBriefPhase]       = useState(null)   // null | 'pending' | 'failed'
-  const [syncStep, setSyncStep]           = useState('')
   const [error, setError]                 = useState(null)
 
   const syncPollRef  = useRef(null)
@@ -53,11 +52,10 @@ export default function App() {
     loadEmails(d)
   }
 
-  // ── Sync ────────────────────────────────────────────────────────────────────
+  // ── Sync ──────────────────────────────────────────────────────────────────
 
   async function handleSync() {
     setSyncPhase('pending')
-    setSyncStep('sorting')
     setError(null)
     try {
       const job = await startRun(days)
@@ -71,7 +69,6 @@ export default function App() {
   async function pollSync(jobId) {
     try {
       const job = await getRun(jobId)
-      setSyncStep(job.step)
       if (job.status === 'done') {
         clearInterval(syncPollRef.current)
         setSyncPhase(null)
@@ -84,7 +81,7 @@ export default function App() {
     } catch { /* keep polling on transient errors */ }
   }
 
-  // ── Briefing ─────────────────────────────────────────────────────────────────
+  // ── Briefing ──────────────────────────────────────────────────────────────
 
   async function handleBrief() {
     setBriefPhase('pending')
@@ -113,7 +110,7 @@ export default function App() {
     } catch { /* keep polling on transient errors */ }
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
 
   const grouped = LABEL_ORDER.reduce((acc, label) => {
     const group = emails.filter(e => e.label === label)
@@ -122,76 +119,120 @@ export default function App() {
   }, {})
 
   const hasEmails = Object.keys(grouped).length > 0
-  const busy = syncPhase === 'pending' || briefPhase === 'pending'
+
+  function navClass(id) {
+    return 'nav-item' + (section === id ? ' active' : '')
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Mailroom</h1>
-        <div className="header-right">
-          {syncPhase === 'pending' && (
-            <span className="run-status">{syncStep}…</span>
-          )}
-          {briefPhase === 'pending' && (
-            <span className="run-status">briefing…</span>
-          )}
-          <div className="days-selector">
-            {DAY_OPTIONS.map(d => (
-              <button
-                key={d}
-                className={`btn-day${days === d ? ' active' : ''}`}
-                onClick={() => handleDaysChange(d)}
-                disabled={busy}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-          <button className="btn-brief" onClick={handleBrief} disabled={briefPhase === 'pending'}>
-            {briefPhase === 'pending' ? 'Briefing…' : 'Briefing'}
+    <div className="layout">
+      <nav className="sidebar">
+        <div className="sidebar-logo">Mailroom</div>
+
+        <button className={navClass('inbox')} onClick={() => setSection('inbox')}>
+          <span className="nav-icon">📬</span>Inbox
+        </button>
+        <button className="nav-sub-action" onClick={handleSync} disabled={syncPhase === 'pending'}>
+          {syncPhase === 'pending' ? 'Syncing…' : 'Sync inbox'}
+        </button>
+
+        <button className={navClass('briefing')} onClick={() => setSection('briefing')}>
+          <span className="nav-icon">📋</span>Briefing
+        </button>
+        <button className="nav-sub-action" onClick={handleBrief} disabled={briefPhase === 'pending'}>
+          {briefPhase === 'pending' ? 'Running…' : 'Generate briefing'}
+        </button>
+
+        {[
+          { id: 'cleanup',  icon: '🧹', label: 'Cleanup' },
+          { id: 'calendar', icon: '📅', label: 'Calendar' },
+          { id: 'followup', icon: '⏳', label: 'Follow-up' },
+        ].map(item => (
+          <button
+            key={item.id}
+            className={navClass(item.id)}
+            onClick={() => setSection(item.id)}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            {item.label}
           </button>
-          <button className="btn-run" onClick={handleSync} disabled={syncPhase === 'pending'}>
-            {syncPhase === 'pending' ? 'Syncing…' : 'Sync'}
-          </button>
-        </div>
-      </header>
+        ))}
+      </nav>
 
-      {error && <div className="error">{error}</div>}
+      <div className="main">
+        <div className="content">
+          {error && <div className="error">{error}</div>}
 
-      {briefingReady && !briefing && (
-        <div className="brief-placeholder">
-          No briefing yet. Click <strong>Briefing</strong> to generate.
-        </div>
-      )}
-      {briefing && <Briefing briefing={briefing} />}
-
-      {hasEmails && (
-        <section className="email-section">
-          <h2>Inbox <span className="inbox-days">· last {days} day{days !== 1 ? 's' : ''}</span></h2>
-          {LABEL_ORDER.filter(l => grouped[l]).map(label => (
-            <div key={label} className="label-group">
-              <div className="label-group-header">
-                <span
-                  className="label-badge"
-                  style={{ background: LABEL_COLORS[label] }}
-                >
-                  {label.replace('_', ' ')}
-                </span>
-                <span className="label-count">{grouped[label].length}</span>
+          {section === 'inbox' && (
+            <>
+              <div className="inbox-toolbar">
+                <div className="days-selector">
+                  {DAY_OPTIONS.map(d => (
+                    <button
+                      key={d}
+                      className={'btn-day' + (days === d ? ' active' : '')}
+                      onClick={() => handleDaysChange(d)}
+                      disabled={syncPhase === 'pending'}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
               </div>
-              {grouped[label].map(email => (
-                <EmailCard key={email.id} email={email} />
-              ))}
-            </div>
-          ))}
-        </section>
-      )}
 
-      {!hasEmails && !busy && (
-        <div className="empty">
-          No emails yet. Click <strong>Sync</strong> to fetch and classify your inbox.
+              {hasEmails && (
+                <section className="email-section">
+                  <h2>Inbox <span className="inbox-days">· last {days} day{days !== 1 ? 's' : ''}</span></h2>
+                  {LABEL_ORDER.filter(l => grouped[l]).map(label => (
+                    <div key={label} className="label-group">
+                      <div className="label-group-header">
+                        <span
+                          className="label-badge"
+                          style={{ background: LABEL_COLORS[label] }}
+                        >
+                          {label.replace('_', ' ')}
+                        </span>
+                        <span className="label-count">{grouped[label].length}</span>
+                      </div>
+                      {grouped[label].map(email => (
+                        <EmailCard key={email.id} email={email} />
+                      ))}
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {!hasEmails && syncPhase !== 'pending' && (
+                <div className="empty">
+                  No emails yet. Click <strong>Sync</strong> to fetch and classify your inbox.
+                </div>
+              )}
+            </>
+          )}
+
+          {section === 'briefing' && (
+            <>
+              {briefingReady && !briefing && (
+                <div className="brief-placeholder">
+                  No briefing yet. Click <strong>Brief</strong> in the sidebar to generate.
+                </div>
+              )}
+              {briefing && <Briefing briefing={briefing} />}
+            </>
+          )}
+
+          {section === 'cleanup' && <Cleanup />}
+
+          {(section === 'calendar' || section === 'followup') && (
+            <div className="empty">
+              {section === 'calendar' ? 'Calendar' : 'Follow-up'} — coming soon.
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
+

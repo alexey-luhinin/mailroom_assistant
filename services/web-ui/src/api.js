@@ -50,3 +50,14 @@ export const approveDraft = (jobId, subject, body) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ subject, body }),
   })
+
+export const getLatestAnalysis = () => request('/analyze/latest')
+
+export const startAnalysis = (days = 30) =>
+  request('/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days }),
+  })
+
+export const getAnalysis = jobId => request(`/analyze/${jobId}`)
