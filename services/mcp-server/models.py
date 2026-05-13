@@ -11,10 +11,12 @@ class EmailSummary(BaseModel):
     date: str
     snippet: str
     thread_id: str
+    is_read: bool = False
 
 
 class Email(EmailSummary):
     body: str
+    list_unsubscribe: Optional[str] = None
 
 
 class DraftRequest(BaseModel):

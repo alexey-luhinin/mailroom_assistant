@@ -106,12 +106,15 @@ def _parse_summary(msg: dict) -> dict:
         "date": _parse_date(msg.get("internalDate")),
         "snippet": msg.get("snippet", ""),
         "thread_id": msg["threadId"],
+        "is_read": "UNREAD" not in msg.get("labelIds", []),
     }
 
 
 def _parse_full(msg: dict) -> dict:
     summary = _parse_summary(msg)
+    headers = {h["name"].lower(): h["value"] for h in msg["payload"]["headers"]}
     summary["body"] = _extract_body(msg["payload"])
+    summary["list_unsubscribe"] = headers.get("list-unsubscribe")
     return summary
 
 
