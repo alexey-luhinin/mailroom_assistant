@@ -115,11 +115,11 @@ async def run_draft(pool: asyncpg.Pool, job_id: str, email_id: str, instructions
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     f"{RESEARCHER_URL}/research",
-                    json={"email_id": email_id},
+                    json={"email_id": email_id, "max_emails": 5},
                     timeout=_T_DRAFT,
                 )
                 resp.raise_for_status()
-            context = resp.json()
+            context = resp.json().get("summaries", [])
         except (httpx.ConnectError, httpx.ConnectTimeout):
             logger.warning("Researcher unavailable, skipping for draft job %s", job_id)
 
