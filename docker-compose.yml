@@ -62,6 +62,19 @@ services:
       mcp-server:
         condition: service_started
 
+  researcher:
+    build: ./services/researcher
+    ports:
+      - "8002:8002"
+    env_file: ./config/.env
+    environment:
+      MCP_SERVER_URL: http://mcp-server:8006
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      mcp-server:
+        condition: service_started
+
   briefer:
     build: ./services/briefer
     ports:
@@ -130,6 +143,8 @@ services:
       redis:
         condition: service_healthy
       sorter:
+        condition: service_started
+      researcher:
         condition: service_started
       briefer:
         condition: service_started

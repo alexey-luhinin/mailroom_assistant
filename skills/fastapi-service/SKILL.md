@@ -223,7 +223,7 @@ async def run(items: list[dict]) -> list[dict]:
 
 async def _process_batch(items: list[dict]) -> list[dict]:
     response = await _client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=4096,
         system=_SYSTEM,
         tools=[_TOOL],
