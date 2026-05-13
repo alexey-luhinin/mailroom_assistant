@@ -123,44 +123,80 @@ async def run_draft(pool: asyncpg.Pool, job_id: str, email_id: str, instructions
         except (httpx.ConnectError, httpx.ConnectTimeout):
             logger.warning("Researcher unavailable, skipping for draft job %s", job_id)
 
-        await db.update_draft_job(pool, job_id, step="drafting")
+        best_draft: dict | None = None
+        best_score: int = -1
+        draft: dict = {}
+        current_instructions = instructions
+        _MAX_ITER = 3
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{DRAFTER_URL}/draft",
-                json={"email_id": email_id, "instructions": instructions, "context": context},
-                timeout=_T_DRAFT,
-            )
-            resp.raise_for_status()
-        drafter_job_id = resp.json()["job_id"]
+        for iteration in range(1, _MAX_ITER + 1):
+            await db.update_draft_job(pool, job_id, step="drafting")
 
-        drafter_result = await _poll_drafter(drafter_job_id)
-        if drafter_result["status"] == "failed":
-            raise RuntimeError(drafter_result.get("error", "Drafting failed."))
-
-        draft = {
-            "draft_id": drafter_result.get("draft_id"),
-            "subject":  drafter_result.get("subject"),
-            "body":     drafter_result.get("body"),
-            "language": drafter_result.get("language"),
-        }
-
-        await db.update_draft_job(pool, job_id, step="reviewing")
-
-        final_draft = draft
-        try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    f"{CRITIC_URL}/review",
-                    json={"draft": draft, "instructions": instructions},
+                    f"{DRAFTER_URL}/draft",
+                    json={"email_id": email_id, "instructions": current_instructions, "context": context},
                     timeout=_T_DRAFT,
                 )
                 resp.raise_for_status()
-            final_draft = resp.json().get("draft", draft)
-        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.HTTPStatusError) as e:
-            logger.warning("Critic unavailable, skipping for draft job %s: %s", job_id, e)
+            drafter_job_id = resp.json()["job_id"]
 
-        await db.update_draft_job(pool, job_id, status="done", step="done", draft=final_draft)
+            drafter_result = await _poll_drafter(drafter_job_id)
+            if drafter_result["status"] == "failed":
+                raise RuntimeError(drafter_result.get("error", "Drafting failed."))
+
+            draft = {
+                "draft_id": drafter_result.get("draft_id"),
+                "subject":  drafter_result.get("subject"),
+                "body":     drafter_result.get("body"),
+                "language": drafter_result.get("language"),
+            }
+
+            await db.update_draft_job(pool, job_id, step="reviewing")
+
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        f"{CRITIC_URL}/review",
+                        json={
+                            "draft": {
+                                "subject":  draft["subject"],
+                                "body":     draft["body"],
+                                "language": draft["language"],
+                            },
+                            "instructions": instructions,
+                            "iteration": iteration,
+                        },
+                        timeout=_T_DRAFT,
+                    )
+                    resp.raise_for_status()
+                review = resp.json()
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.HTTPStatusError) as e:
+                logger.warning("Critic unavailable at iteration %d for job %s: %s", iteration, job_id, e)
+                best_draft = draft
+                break
+
+            score = review.get("score", 0)
+            approved = review.get("approved", False)
+            feedback = review.get("feedback", "")
+
+            logger.info("Draft job %s iteration %d: score=%d approved=%s", job_id, iteration, score, approved)
+
+            if score > best_score:
+                best_score = score
+                best_draft = draft
+
+            if approved:
+                break
+
+            if iteration < _MAX_ITER:
+                current_instructions = (
+                    f"{instructions}\n\nCritic feedback (iteration {iteration}): {feedback}"
+                    if instructions
+                    else f"Critic feedback (iteration {iteration}): {feedback}"
+                )
+
+        await db.update_draft_job(pool, job_id, status="done", step="done", draft=best_draft or draft)
 
     except Exception as e:
         logger.error("Draft job %s failed: %s", job_id, e)
