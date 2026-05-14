@@ -10,6 +10,7 @@ from googleapiclient.errors import HttpError
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/calendar.readonly",
 ]
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))

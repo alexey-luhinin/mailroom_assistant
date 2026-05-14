@@ -19,6 +19,30 @@ class Email(EmailSummary):
     list_unsubscribe: Optional[str] = None
 
 
+class CalendarAttendee(BaseModel):
+    email: str
+    name: str
+    status: str
+
+
+class CalendarEvent(BaseModel):
+    id: str
+    title: str
+    start: str
+    end: str
+    all_day: bool
+    description: Optional[str] = None
+    location: Optional[str] = None
+    meet_link: Optional[str] = None
+    attendees: list[CalendarAttendee] = []
+    organizer: str
+
+
+class CalendarEventsResponse(BaseModel):
+    week: str
+    events: list[CalendarEvent]
+
+
 class DraftRequest(BaseModel):
     to: str
     subject: str

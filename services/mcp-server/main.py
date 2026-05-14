@@ -8,8 +8,15 @@ load_dotenv("config/.env")
 from fastapi import FastAPI, HTTPException
 
 import cache
+import gcalendar as gcal
 import gmail
-from models import DraftRequest, DraftResponse, Email, EmailSummary
+from models import (
+    CalendarEventsResponse,
+    DraftRequest,
+    DraftResponse,
+    Email,
+    EmailSummary,
+)
 
 app = FastAPI(title="MCP Server", description="Gmail API gateway — read + drafts")
 
@@ -45,6 +52,24 @@ async def get_email(email_id: str):
 
     cache.set_email(email_id, email)
     return email
+
+
+@app.get("/calendar/events/today", response_model=CalendarEventsResponse)
+async def calendar_events_today():
+    try:
+        return await asyncio.to_thread(gcal.get_events, 1)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
+@app.get("/calendar/events", response_model=CalendarEventsResponse)
+async def calendar_events(days_ahead: int = 5):
+    if not 1 <= days_ahead <= 30:
+        raise HTTPException(status_code=422, detail="days_ahead must be between 1 and 30.")
+    try:
+        return await asyncio.to_thread(gcal.get_events, days_ahead)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.post("/drafts", response_model=DraftResponse, status_code=201)
