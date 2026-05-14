@@ -51,6 +51,9 @@ export const approveDraft = (jobId, subject, body) =>
     body: JSON.stringify({ subject, body }),
   })
 
+export const getCalendarEvents = (days_ahead = 5) =>
+  request(`/calendar/events?${new URLSearchParams({ days_ahead })}`)
+
 export const getLatestAnalysis = () => request('/analyze/latest')
 
 export const startAnalysis = (days = 30) =>

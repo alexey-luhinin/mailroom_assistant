@@ -474,6 +474,51 @@ body {
   text-decoration: underline;
 }
 
+/* ── Calendar section ────────────────────────────────────────────────────── */
+
+.cal-day-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.cal-card-row {
+  display: flex;
+  gap: 16px;
+}
+
+.cal-time {
+  font-size: 12px;
+  color: #71717a;
+  white-space: nowrap;
+  min-width: 90px;
+  padding-top: 2px;
+}
+
+.cal-body { flex: 1; }
+
+.cal-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.cal-meta {
+  font-size: 13px;
+  color: #71717a;
+  margin-bottom: 4px;
+}
+
+.cal-description {
+  font-size: 13px;
+  color: #52525b;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
 /* ── Empty states ────────────────────────────────────────────────────────── */
 
 .empty {

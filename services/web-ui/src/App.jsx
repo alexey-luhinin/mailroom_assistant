@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { startRun, getRun, getEmails, getLatestBriefing, startBrief, getBrief } from './api'
 import Briefing from './components/Briefing'
+import Calendar from './components/Calendar'
 import Cleanup from './components/Cleanup'
 import EmailCard from './components/EmailCard'
 
@@ -225,10 +226,10 @@ export default function App() {
 
           {section === 'cleanup' && <Cleanup />}
 
-          {(section === 'calendar' || section === 'followup') && (
-            <div className="empty">
-              {section === 'calendar' ? 'Calendar' : 'Follow-up'} — coming soon.
-            </div>
+          {section === 'calendar' && <Calendar />}
+
+          {section === 'followup' && (
+            <div className="empty">Follow-up — coming soon.</div>
           )}
         </div>
       </div>

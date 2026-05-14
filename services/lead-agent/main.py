@@ -199,6 +199,29 @@ async def get_latest_brief():
     return resp.json()
 
 
+@app.get("/calendar/events/today")
+async def get_calendar_events_today():
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{MCP_URL}/calendar/events/today", timeout=_T_SHORT)
+    if 400 <= resp.status_code < 500:
+        raise HTTPException(status_code=resp.status_code,
+                            detail=resp.json().get("detail", resp.text))
+    resp.raise_for_status()
+    return resp.json()
+
+
+@app.get("/calendar/events")
+async def get_calendar_events(days_ahead: int = 5):
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{MCP_URL}/calendar/events",
+                                params={"days_ahead": days_ahead}, timeout=_T_SHORT)
+    if 400 <= resp.status_code < 500:
+        raise HTTPException(status_code=resp.status_code,
+                            detail=resp.json().get("detail", resp.text))
+    resp.raise_for_status()
+    return resp.json()
+
+
 @app.get("/emails")
 async def get_emails(label: str | None = None, days: int = 7):
     if not 1 <= days <= 30:
