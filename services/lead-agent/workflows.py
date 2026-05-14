@@ -53,6 +53,18 @@ async def run_morning(pool: asyncpg.Pool, job_id: str, days: int) -> None:
         await db.update_run_job(pool, job_id, status="failed", step="failed", error=str(e))
 
 
+async def fetch_today_calendar_events(client: httpx.AsyncClient) -> list[dict]:
+    try:
+        resp = await client.get(f"{MCP_URL}/calendar/events/today", timeout=_T_SHORT)
+        resp.raise_for_status()
+        events = resp.json().get("events", [])
+        logger.info("Fetched %d calendar events for briefing: %s", len(events), events)
+        return events
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning("Could not fetch calendar events, continuing without: %s", e)
+        return []
+
+
 async def get_or_create_brief(days: int) -> dict:
     async with httpx.AsyncClient() as client:
         try:
@@ -71,7 +83,13 @@ async def get_or_create_brief(days: int) -> dict:
         except Exception as e:
             logger.warning("Could not fetch latest brief, generating new one: %s", e)
 
-        resp = await client.post(f"{BRIEFER_URL}/brief", json={"days": days}, timeout=_T_MEDIUM)
+        calendar_events = await fetch_today_calendar_events(client)
+
+        resp = await client.post(
+            f"{BRIEFER_URL}/brief",
+            json={"days": days, "calendar_events": calendar_events},
+            timeout=_T_MEDIUM,
+        )
         resp.raise_for_status()
 
     briefing = await _poll_brief(resp.json()["job_id"])

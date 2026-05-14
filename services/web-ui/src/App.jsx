@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { startRun, getRun, getEmails, getLatestBriefing, startBrief, getBrief } from './api'
+import { startRun, getRun, getEmails, getLatestBriefing, startBrief, getBrief, getCalendarEvents } from './api'
 import Briefing from './components/Briefing'
 import Calendar from './components/Calendar'
 import Cleanup from './components/Cleanup'
@@ -23,6 +23,7 @@ export default function App() {
   const [days, setDays]                   = useState(1)
   const [briefing, setBriefing]           = useState(null)
   const [briefingReady, setBriefingReady] = useState(false)
+  const [calendarEvents, setCalendarEvents] = useState([])
   const [syncPhase, setSyncPhase]         = useState(null)   // null | 'pending' | 'failed'
   const [briefPhase, setBriefPhase]       = useState(null)   // null | 'pending' | 'failed'
   const [error, setError]                 = useState(null)
@@ -33,6 +34,7 @@ export default function App() {
   useEffect(() => {
     loadEmails(days)
     loadLatestBriefing()
+    getCalendarEvents(1).then(d => setCalendarEvents(d.events ?? [])).catch(() => {})
     return () => {
       clearInterval(syncPollRef.current)
       clearInterval(briefPollRef.current)
@@ -220,7 +222,7 @@ export default function App() {
                   No briefing yet. Click <strong>Brief</strong> in the sidebar to generate.
                 </div>
               )}
-              {briefing && <Briefing briefing={briefing} />}
+              {briefing && <Briefing briefing={briefing} calendarEvents={calendarEvents} />}
             </>
           )}
 

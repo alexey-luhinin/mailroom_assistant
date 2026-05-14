@@ -41,14 +41,14 @@ _TOOL = {
                 "type": "string",
                 "description": (
                     "The full briefing text. Structure:\n"
-                    "1. Opening line: 'Good morning, Alexey. You have {total} emails today.'\n"
-                    "2. If urgent emails exist — section 'Urgent:' followed by each email on its own paragraph: "
-                    "'**[Subject]** from [Sender].\\n[2-3 sentences: context, required action, deadline if known.]'\n"
-                    "3. If action_needed emails exist — section 'Action needed:' same format.\n"
-                    "4. Closing line: '[fyi] FYI · [newsletter] newsletters · [promo] promos — nothing urgent.' "
+                    "1. Opening line: ‘Good morning, Alexey. You have {total} emails today.’\n"
+                    "2. If urgent emails exist — section ‘Urgent:’ followed by each email on its own paragraph: "
+                    "’**[Subject]** from [Sender].\\n[2-3 sentences: context, required action, deadline if known.]’\n"
+                    "3. If action_needed emails exist — section ‘Action needed:’ same format.\n"
+                    "4. Closing line: ‘[fyi] FYI · [newsletter] newsletters · [promo] promos — nothing urgent.’ "
                     "(omit any category with count 0).\n"
                     "5. If NO urgent or action_needed emails: replace sections 2-4 with "
-                    "'Nothing urgent today. {total} emails, all low priority.'"
+                    "’Nothing urgent today. {total} emails, all low priority.’"
                 ),
             }
         },
@@ -79,11 +79,24 @@ async def _enrich(emails: list[dict]) -> list[dict]:
     return [{**e, "body": body_by_id[e["id"]]} if e["id"] in body_by_id else e for e in emails]
 
 
+def _fmt_meeting_time(event: dict) -> str:
+    if event.get("all_day"):
+        return "all day"
+    try:
+        from datetime import datetime as _dt
+        s = _dt.fromisoformat(event["start"])
+        e = _dt.fromisoformat(event["end"])
+        return f"{s.hour:02d}:{s.minute:02d} – {e.hour:02d}:{e.minute:02d}"
+    except Exception:
+        return event.get("start", "?")[:16]
+
+
 async def generate(
     date_str: str,
     today_emails: list[dict],
     previous_emails: list[dict],
     summary: dict,
+    calendar_events: list[dict] | None = None,
 ) -> str:
     if not today_emails and not previous_emails:
         return "Good morning, Alexey. Nothing urgent today. Your inbox is empty."

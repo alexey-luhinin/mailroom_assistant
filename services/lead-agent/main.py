@@ -32,6 +32,7 @@ from workflows import (
     SORTER_URL,
     DRAFTER_URL,
     CRITIC_URL,
+    fetch_today_calendar_events,
     get_or_create_brief,
     run_draft,
     run_morning,
@@ -172,7 +173,10 @@ async def post_brief(request: BriefRequest):
         except Exception as e:
             logger.warning("post_brief: could not check latest brief: %s", e)
 
-        resp = await client.post(f"{BRIEFER_URL}/brief", json=request.model_dump(), timeout=_T_MEDIUM)
+        calendar_events = await fetch_today_calendar_events(client)
+        payload = {**request.model_dump(), "calendar_events": calendar_events}
+        logger.info("post_brief: passing %d calendar events to briefer", len(calendar_events))
+        resp = await client.post(f"{BRIEFER_URL}/brief", json=payload, timeout=_T_MEDIUM)
         resp.raise_for_status()
     return resp.json()
 
