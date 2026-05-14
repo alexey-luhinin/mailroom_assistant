@@ -85,17 +85,61 @@ async def get_or_create_brief(days: int) -> dict:
 
         calendar_events = await fetch_today_calendar_events(client)
 
-        resp = await client.post(
-            f"{BRIEFER_URL}/brief",
-            json={"days": days, "calendar_events": calendar_events},
-            timeout=_T_MEDIUM,
-        )
-        resp.raise_for_status()
+    best_briefing: dict | None = None
+    best_score: int = -1
+    feedback = ""
+    _MAX_ITER = 3
 
-    briefing = await _poll_brief(resp.json()["job_id"])
-    if briefing["status"] == "failed":
-        raise RuntimeError(briefing.get("error", "Briefing failed."))
-    return briefing
+    for iteration in range(1, _MAX_ITER + 1):
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{BRIEFER_URL}/brief",
+                json={"days": days, "calendar_events": calendar_events, "feedback": feedback},
+                timeout=_T_MEDIUM,
+            )
+            resp.raise_for_status()
+
+        briefing = await _poll_brief(resp.json()["job_id"])
+        if briefing["status"] == "failed":
+            raise RuntimeError(briefing.get("error", "Briefing failed."))
+
+        summary = briefing.get("summary") or {}
+        review_context = {
+            "urgent_count": summary.get("urgent", 0),
+            "action_needed_count": summary.get("action_needed", 0),
+            "meetings_count": len(calendar_events),
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{CRITIC_URL}/review/brief",
+                    json={"content": briefing["content"], "context": review_context},
+                    timeout=_T_DRAFT,
+                )
+                resp.raise_for_status()
+            review = resp.json()
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.HTTPStatusError) as e:
+            logger.warning("Critic unavailable for brief at iteration %d: %s", iteration, e)
+            best_briefing = briefing
+            break
+
+        score = review.get("score", 0)
+        approved = review.get("approved", False)
+        critic_feedback = review.get("feedback", "")
+
+        logger.info("Brief iteration %d: score=%d approved=%s", iteration, score, approved)
+
+        if score > best_score:
+            best_score = score
+            best_briefing = briefing
+
+        if approved:
+            break
+
+        if iteration < _MAX_ITER:
+            feedback = f"Critic feedback (iteration {iteration}): {critic_feedback}"
+
+    return best_briefing
 
 
 async def _poll_brief(brief_job_id: str, timeout: int = 300) -> dict:
@@ -138,7 +182,7 @@ async def run_draft(pool: asyncpg.Pool, job_id: str, email_id: str, instructions
                 )
                 resp.raise_for_status()
             context = resp.json().get("summaries", [])
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError):
             logger.warning("Researcher unavailable, skipping for draft job %s", job_id)
 
         best_draft: dict | None = None

@@ -61,7 +61,7 @@ async def post_brief(request: BriefRequest):
 
     job_id = str(uuid.uuid4())
     await db.create_job(_pool, job_id)
-    asyncio.create_task(_run_brief(job_id, request.days, request.calendar_events))
+    asyncio.create_task(_run_brief(job_id, request.days, request.calendar_events, request.feedback))
     return BriefJobResponse(job_id=job_id, status="pending")
 
 
@@ -108,14 +108,14 @@ async def list_briefs(limit: int = 7):
     return briefs
 
 
-async def _run_brief(job_id: str, days: int, calendar_events: list[dict] | None = None) -> None:
+async def _run_brief(job_id: str, days: int, calendar_events: list[dict] | None = None, feedback: str = "") -> None:
     try:
         today_emails = await db.get_today_emails(_pool, days)
         previous_emails = await db.get_unresolved_emails(_pool, days)
         summary = _compute_summary(today_emails)
         now = datetime.now(timezone.utc)
         date_str = now.strftime(f"%B {now.day}, %Y")
-        content = await agent.generate(date_str, today_emails, previous_emails, summary, calendar_events or [])
+        content = await agent.generate(date_str, today_emails, previous_emails, summary, calendar_events or [], feedback)
         cache.invalidate_latest()
         await db.update_job(_pool, job_id, "done", content=content, summary=summary)
     except Exception as e:

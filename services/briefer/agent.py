@@ -97,6 +97,7 @@ async def generate(
     previous_emails: list[dict],
     summary: dict,
     calendar_events: list[dict] | None = None,
+    feedback: str = "",
 ) -> str:
     if not today_emails and not previous_emails:
         return "Good morning, Alexey. Nothing urgent today. Your inbox is empty."
@@ -138,6 +139,9 @@ async def generate(
         "Write the briefing following the tool description exactly. "
         "Plain text only — no markdown, no bullet points, no asterisks."
     )
+
+    if feedback:
+        prompt += f"\n\nPrevious attempt was rejected. Critic feedback: {feedback}\nAddress all points above."
 
     response = await _client.messages.create(
         model="claude-sonnet-4-5",

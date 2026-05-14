@@ -7,6 +7,7 @@ Status = Literal["pending", "done", "failed"]
 class BriefRequest(BaseModel):
     days: int = 1
     calendar_events: list[dict] = []
+    feedback: str = ""
 
 
 class BriefJobResponse(BaseModel):

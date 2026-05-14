@@ -8,7 +8,7 @@ import os
 from fastapi import FastAPI
 
 import agent
-from models import ReviewRequest, ReviewResponse
+from models import BriefReviewRequest, ReviewRequest, ReviewResponse
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,21 @@ def _load_style_profile() -> str:
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "critic"}
+
+
+@app.post("/review/brief", response_model=ReviewResponse)
+async def post_review_brief(request: BriefReviewRequest):
+    result = await agent.review_brief(
+        content=request.content,
+        context=request.context.model_dump(),
+    )
+    score = result["score"]
+    return ReviewResponse(
+        score=score,
+        approved=score >= 7,
+        feedback=result["feedback"],
+        improved_draft=None,
+    )
 
 
 @app.post("/review", response_model=ReviewResponse)

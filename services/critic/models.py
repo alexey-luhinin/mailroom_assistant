@@ -19,3 +19,14 @@ class ReviewResponse(BaseModel):
     approved: bool
     feedback: str
     improved_draft: Optional[None] = None
+
+
+class BriefContext(BaseModel):
+    urgent_count: int = 0
+    action_needed_count: int = 0
+    meetings_count: int = 0
+
+
+class BriefReviewRequest(BaseModel):
+    content: str
+    context: BriefContext
