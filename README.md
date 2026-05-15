@@ -1,78 +1,130 @@
-# Mailroom — Your AI Inbox Triage Assistant
+# Mailroom — AI Inbox Triage Assistant
 
-A privacy-conscious, human-in-the-loop AI inbox triage assistant built on the
-Claude Agent SDK and a custom Python MCP server. Built as the community project
-for the Claude Certified Architect Essential certification.
+A microservices-based AI assistant that classifies your Gmail inbox, generates
+a morning briefing, drafts replies, and surfaces unsubscribe candidates —
+all controlled from a React web UI. Nothing is ever auto-sent.
 
 ---
 
-## What you can do with it
+## What it does
 
-- **`/morning-inbox`** — a 1-page brief: who needs you today, what you owe people,
-  what you're waiting on, ghost meetings buried in threads.
-- **`/triage`** — proposes a structured action plan (classify, archive, label,
-  snooze). Nothing is applied until you run `/triage --apply <id>`.
-- **`/draft <thread_id>`** — produces a reply in your own writing voice. The
-  draft lands in Gmail's drafts folder. **Never auto-sent.**
-- **`/follow-up`** — surfaces emails you sent that nobody replied to.
+- **Inbox sync** — fetches emails for the last 1–30 days and classifies each
+  one: `urgent`, `action_needed`, `calendar`, `fyi`, `newsletter`, `promo`, `spam`
+- **Morning briefing** — generates a concise summary grouped by priority,
+  including today's calendar events
+- **Draft reply** — Researcher enriches context, Drafter writes a reply,
+  Critic reviews it; the result lands in Gmail Drafts, never auto-sent
+- **Cleanup** — surfaces newsletter and promo senders you never open and
+  extracts their unsubscribe links; one-click to act, never automatic
+- **Calendar** — shows upcoming Google Calendar events inline
 
-## Architecture in one paragraph
+## Architecture
 
-A Lead Agent built on the Claude Agent SDK orchestrates six specialist
-sub-agents (Sorter, Researcher, Drafter, Scheduler, Critic, Briefer) that share
-a custom Python MCP server. The MCP server wraps Gmail and Google Calendar
-behind two OAuth credentials (read-only and write) so a token compromise on
-the read side cannot mutate state. The signature pattern is the **Approval
-Workflow**: every mutating tool call is gated by a `PreToolUse` hook that
-requires a fresh user-approved plan, and every call is appended to a
-PII-redacted JSONL audit log by `PostToolUse`.
+```
+Browser (React/Vite :3000)
+        │
+        ▼
+Lead Agent :8000          ← single orchestrator
+        │
+        ├──▶ Sorter      :8001   classify emails
+        ├──▶ Researcher  :8002   enrich context
+        ├──▶ Drafter     :8003   write reply drafts
+        ├──▶ Critic      :8004   review drafts
+        ├──▶ Briefer     :8005   morning summary
+        └──▶ Unsubscribe :8007   newsletter cleanup
+                │
+                ▼
+          MCP Server :8006       Gmail + Google Calendar gateway
+                │
+                ▼
+        Gmail API / Google Calendar API
 
-See `docs/ARCHITECTURE.md` for the full diagram.
+PostgreSQL :5432   — emails, drafts, briefing history
+Redis      :6379   — Gmail API cache (TTL: 1h)
+```
 
-## Quickstart (10 minutes)
+All inter-service communication is HTTP REST. Services never call each other
+directly — only Lead Agent orchestrates.
 
-> **One-time rename after extracting the scaffold archive:**
-> the bundle ships dotfile-prefixed folders as `dotclaude/` and `dotgithub/`.
-> Rename them once: `mv dotclaude .claude && mv dotgithub .github`.
+## Tech stack
+
+| Layer       | Technology                          |
+|-------------|-------------------------------------|
+| Services    | Python 3.13 + FastAPI               |
+| AI          | Anthropic API `claude-sonnet-4-5` |
+| Storage     | PostgreSQL 16                       |
+| Cache       | Redis 7                             |
+| Frontend    | React + Vite (nginx container)      |
+| Infra       | Docker + docker-compose             |
+| Gmail/Cal   | Google OAuth 2.0                    |
+
+## Quickstart
+
+### Prerequisites
+- Docker Desktop
+- Google Cloud project with Gmail API and Google Calendar API enabled
+- OAuth 2.0 credentials (`credentials.json`) for your Gmail account
+- Anthropic API key
+
+### Setup
 
 ```bash
-git clone <your-fork>
-cd mailroom-starter
-mv dotclaude .claude && mv dotgithub .github   # only after first extract
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
+git clone <repo>
+cd cp_mailroom
 
-cp .env.example .env  # add your Anthropic API key
+# Add credentials
+cp .env.example config/.env
+# Edit config/.env — set ANTHROPIC_API_KEY
+# Place your OAuth credentials.json in config/
 
-# 1. mint two OAuth tokens (read-only + write) for your throwaway Gmail
-python scripts/oauth_setup.py
+# First run: mint OAuth tokens
+python scripts/oauth_setup.py   # opens browser, saves token files to config/
 
-# 2. seed the throwaway inbox with 200 synthetic labelled emails
-python scripts/seed_throwaway_gmail.py
-
-# 3. smoke test
-make hello   # should print "You have N unread"
+# Start everything
+docker compose up --build
 ```
 
-Then open the project in Claude Code and try `/morning-inbox`.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Repo tour
+Click **Sync inbox** to classify emails, **Generate briefing** to run the
+morning summary. To draft a reply, open an email card and click **Draft reply**
+— the draft appears in your Gmail Drafts folder.
+
+## Repo layout
 
 ```
-.claude/        # mcp.json, hooks, commands, skills — everything Claude Code reads
-src/mailroom/   # the Python package: agents, MCP server, schemas, audit log
-evals/          # golden set, runner, judge, rubric
-scripts/        # OAuth bootstrap, throwaway-inbox seeder
-docs/           # architecture diagram, ADRs, exam-objective map
-tests/          # smoke + hooks + critic
+services/
+├── lead-agent/     FastAPI orchestrator (port 8000)
+├── sorter/         email classifier (port 8001)
+├── researcher/     context enrichment (port 8002)
+├── drafter/        reply writer (port 8003)
+├── critic/         draft reviewer (port 8004)
+├── briefer/        morning briefing (port 8005)
+├── mcp-server/     Gmail + Calendar gateway (port 8006)
+├── unsubscribe/    newsletter cleanup (port 8007)
+└── web-ui/         React frontend (port 3000)
+config/             credentials.json, .env (gitignored)
+docs/               SPEC, ARCHITECTURE, per-agent and per-API specs
 ```
 
-## House rules
+Each service follows the same internal structure:
+```
+services/<name>/
+├── Dockerfile
+├── requirements.txt
+├── main.py     FastAPI app + routes
+├── agent.py    Claude API logic (where applicable)
+├── db.py       PostgreSQL queries
+├── cache.py    Redis logic
+└── models.py   Pydantic models
+```
 
-- **Throwaway Gmail only.** Never point this at a real inbox during the sprint.
-- **No solo merges.** Every PR has a co-author from your pair.
-- **Drafts, never sends.** `mail.send` is deliberately absent from v1.
-- **ADRs for the three hardest decisions.** Template in `docs/ADR-template.md`.
+## Rules
+
+- **Never sends email** — only saves to Gmail Drafts
+- **Never deletes or modifies emails**
+- **Never unsubscribes automatically** — only surfaces candidates
+- All secrets live in `config/.env`, never committed
 
 ## License
 
