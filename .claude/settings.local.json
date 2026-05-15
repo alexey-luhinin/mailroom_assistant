@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "PowerShell(docker run *)",
-      "Bash(xargs grep -l \"from mcp_server\\\\|import mcp_server\")"
+      "Bash(xargs grep -l \"from mcp_server\\\\|import mcp_server\")",
+      "Bash(docker exec cp_mailroom-redis-1 *)",
+      "Bash(docker exec cp_mailroom-sorter-1 *)",
+      "Bash(curl -s \"http://localhost:8006/emails?days=1\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'MCP \\(days=1\\): {len\\(data\\)} emails'\\)\")",
+      "Bash(curl -s \"http://localhost:8001/emails?days=1\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'Sorter DB \\(days=1\\): {len\\(data\\)} emails'\\)\")",
+      "Bash(docker exec cp_mailroom-postgres-1 *)"
     ]
   }
 }

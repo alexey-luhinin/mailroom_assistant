@@ -52,7 +52,7 @@ export default function Calendar() {
   const events = data?.events ?? []
 
   const dayGroups = events.reduce((map, event) => {
-    const key = event.start.slice(0, 10)
+    const key = localDateKey(new Date(event.start))
     if (!map.has(key)) map.set(key, [])
     map.get(key).push(event)
     return map

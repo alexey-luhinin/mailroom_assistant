@@ -34,7 +34,7 @@ export default function App() {
   useEffect(() => {
     loadEmails(days)
     loadLatestBriefing()
-    getCalendarEvents(1).then(d => setCalendarEvents(d.events ?? [])).catch(() => {})
+    getCalendarEvents(1).then(d => setCalendarEvents(d.events ?? [])).catch(e => console.warn('Calendar fetch failed:', e))
     return () => {
       clearInterval(syncPollRef.current)
       clearInterval(briefPollRef.current)

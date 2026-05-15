@@ -47,16 +47,40 @@ async def get_emails_by_ids(pool: asyncpg.Pool, ids: list[str]) -> list[dict]:
     return [_to_dict(r) for r in rows]
 
 
-async def get_emails(pool: asyncpg.Pool, days: int, label: str | None) -> list[dict]:
+async def get_emails(
+    pool: asyncpg.Pool,
+    days: int,
+    label: str | None,
+    until: datetime | None = None,
+) -> list[dict]:
     since = datetime.now(timezone.utc) - timedelta(days=days)
+    conditions = ["classified_at >= $1"]
+    params: list = [since]
+    if until is not None:
+        params.append(until)
+        conditions.append(f"classified_at < ${len(params)}")
+    if label:
+        params.append(label)
+        conditions.append(f"label = ${len(params)}")
+    where = " AND ".join(conditions)
+    rows = await pool.fetch(
+        f"SELECT * FROM emails WHERE {where} ORDER BY priority ASC",
+        *params,
+    )
+    return [_to_dict(r) for r in rows]
+
+
+async def get_emails_from(
+    pool: asyncpg.Pool, since: datetime, label: str | None
+) -> list[dict]:
     if label:
         rows = await pool.fetch(
-            "SELECT * FROM emails WHERE date::timestamptz >= $1 AND label = $2 ORDER BY priority ASC",
+            "SELECT * FROM emails WHERE classified_at >= $1 AND label = $2 ORDER BY priority ASC",
             since, label,
         )
     else:
         rows = await pool.fetch(
-            "SELECT * FROM emails WHERE date::timestamptz >= $1 ORDER BY priority ASC",
+            "SELECT * FROM emails WHERE classified_at >= $1 ORDER BY priority ASC",
             since,
         )
     return [_to_dict(r) for r in rows]

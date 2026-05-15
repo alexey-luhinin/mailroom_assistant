@@ -231,10 +231,6 @@ async def get_emails(label: str | None = None, days: int = 7):
     if not 1 <= days <= 30:
         raise HTTPException(status_code=422, detail="Invalid days value. Must be between 1 and 30.")
 
-    cached = cache.get_emails(days, label)
-    if cached is not None:
-        return cached
-
     params: dict = {"days": days}
     if label:
         params["label"] = label
@@ -243,6 +239,4 @@ async def get_emails(label: str | None = None, days: int = 7):
         resp = await client.get(f"{SORTER_URL}/emails", params=params, timeout=_T_MEDIUM)
         resp.raise_for_status()
 
-    emails = resp.json()
-    cache.set_emails(days, label, emails)
-    return emails
+    return resp.json()

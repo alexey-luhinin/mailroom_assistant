@@ -1,5 +1,6 @@
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
@@ -85,10 +86,22 @@ async def sort(request: SortRequest):
 
 @app.get("/emails", response_model=list[ClassifiedEmail], response_model_by_alias=True)
 async def get_emails(label: str | None = None, days: int = 7):
-    cached = cache.get_emails(days, label)
-    if cached is not None:
-        return cached
+    if not 1 <= days <= 30:
+        raise HTTPException(status_code=422, detail="Invalid days value. Must be between 1 and 30.")
 
-    emails = await db.get_emails(_pool, days, label)
-    cache.set_emails(days, label, emails)
-    return emails
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Today's emails: always fresh — never cached
+    today_emails = await db.get_emails_from(_pool, today_start, label)
+
+    # Historical emails (yesterday and older): served from cache
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    historical: list[dict] = []
+    if since < today_start:
+        historical = cache.get_emails(days, label) or []
+        if not historical:
+            historical = await db.get_emails(_pool, days, label, until=today_start)
+            if historical:
+                cache.set_emails(days, label, historical)
+
+    return sorted(today_emails + historical, key=lambda e: e["priority"])
