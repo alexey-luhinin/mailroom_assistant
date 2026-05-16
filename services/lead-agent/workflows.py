@@ -16,6 +16,7 @@ DRAFTER_URL    = os.getenv("DRAFTER_URL",    "http://localhost:8003")
 CRITIC_URL     = os.getenv("CRITIC_URL",     "http://localhost:8004")
 BRIEFER_URL    = os.getenv("BRIEFER_URL",    "http://localhost:8005")
 MCP_URL        = os.getenv("MCP_SERVER_URL", "http://localhost:8006")
+FOLLOWUP_URL   = os.getenv("FOLLOWUP_URL",   "http://localhost:8008")
 
 _T_SHORT  = 10.0
 _T_MEDIUM = 30.0

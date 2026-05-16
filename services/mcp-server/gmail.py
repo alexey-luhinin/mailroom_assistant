@@ -185,6 +185,7 @@ def _parse_full(msg: dict) -> dict:
     summary = _parse_summary(msg)
     headers = {h["name"].lower(): h["value"] for h in msg["payload"]["headers"]}
     summary["body"] = _extract_body(msg["payload"])
+    summary["to"] = headers.get("to", "")
     summary["list_unsubscribe"] = headers.get("list-unsubscribe")
     return summary
 

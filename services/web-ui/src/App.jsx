@@ -4,6 +4,7 @@ import Briefing from './components/Briefing'
 import Calendar from './components/Calendar'
 import Cleanup from './components/Cleanup'
 import EmailCard from './components/EmailCard'
+import FollowUp from './components/FollowUp'
 
 const LABEL_ORDER  = ['urgent', 'action_needed', 'calendar', 'fyi', 'newsletter', 'promo', 'spam']
 const LABEL_COLORS = {
@@ -230,9 +231,7 @@ export default function App() {
 
           {section === 'calendar' && <Calendar />}
 
-          {section === 'followup' && (
-            <div className="empty">Follow-up — coming soon.</div>
-          )}
+          {section === 'followup' && <FollowUp />}
         </div>
       </div>
     </div>

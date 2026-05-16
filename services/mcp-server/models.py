@@ -16,6 +16,7 @@ class EmailSummary(BaseModel):
 
 class Email(EmailSummary):
     body: str
+    to: str = ""
     list_unsubscribe: Optional[str] = None
 
 

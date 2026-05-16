@@ -22,11 +22,13 @@ from models import (
     BriefRequest,
     DraftJobResponse,
     DraftRequest,
+    FollowupRequest,
     RunJobResponse,
     RunRequest,
 )
 from workflows import (
     BRIEFER_URL,
+    FOLLOWUP_URL,
     MCP_URL,
     RESEARCHER_URL,
     SORTER_URL,
@@ -51,6 +53,7 @@ _DEPS = {
     "critic":     CRITIC_URL,
     "briefer":    BRIEFER_URL,
     "mcp-server": MCP_URL,
+    "followup":   FOLLOWUP_URL,
 }
 
 _pool: asyncpg.Pool | None = None
@@ -224,6 +227,73 @@ async def get_calendar_events(days_ahead: int = 5):
                             detail=resp.json().get("detail", resp.text))
     resp.raise_for_status()
     return resp.json()
+
+
+@app.post("/followup", status_code=202)
+async def post_followup(request: FollowupRequest):
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(f"{FOLLOWUP_URL}/followup", json=request.model_dump(), timeout=_T_SHORT)
+    if 400 <= resp.status_code < 500:
+        err = resp.json()
+        raise HTTPException(status_code=resp.status_code,
+                            detail=err.get("detail") or err.get("error") or resp.text)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@app.get("/followup/{job_id}")
+async def get_followup(job_id: str):
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{FOLLOWUP_URL}/followup/{job_id}", timeout=_T_SHORT)
+    if 400 <= resp.status_code < 500:
+        err = resp.json()
+        raise HTTPException(status_code=resp.status_code,
+                            detail=err.get("detail") or err.get("error") or resp.text)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@app.get("/emails/{email_id}")
+async def get_email(email_id: str):
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{MCP_URL}/emails/{email_id}", timeout=_T_SHORT)
+    if 400 <= resp.status_code < 500:
+        raise HTTPException(status_code=resp.status_code,
+                            detail=resp.json().get("detail", resp.text))
+    resp.raise_for_status()
+    return resp.json()
+
+
+@app.post("/approve-followup/{job_id}")
+async def approve_followup_draft(job_id: str, request: ApproveRequest):
+    job = await db.get_draft_job(_pool, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Draft job not found.")
+    if job["status"] != "done":
+        raise HTTPException(status_code=422, detail="Draft is not ready.")
+
+    draft = job.get("draft") or {}
+    subject = request.subject if request.subject is not None else draft.get("subject", "")
+    body    = request.body    if request.body    is not None else draft.get("body", "")
+
+    async with httpx.AsyncClient() as client:
+        email_resp = await client.get(f"{MCP_URL}/emails/{job['email_id']}", timeout=_T_SHORT)
+        email_resp.raise_for_status()
+        email = email_resp.json()
+
+        draft_resp = await client.post(
+            f"{MCP_URL}/drafts",
+            json={
+                "to":        email.get("to", ""),
+                "subject":   subject,
+                "body":      body,
+                "thread_id": email.get("thread_id"),
+            },
+            timeout=_T_MEDIUM,
+        )
+        draft_resp.raise_for_status()
+
+    return {"draft_id": draft_resp.json()["draft_id"]}
 
 
 @app.get("/emails")

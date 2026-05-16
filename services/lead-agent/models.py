@@ -14,6 +14,10 @@ class BriefRequest(BaseModel):
     days: int = 1
 
 
+class FollowupRequest(BaseModel):
+    days: int = 30
+
+
 class DraftRequest(BaseModel):
     email_id: str
     instructions: str = ""

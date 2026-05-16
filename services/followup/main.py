@@ -71,11 +71,15 @@ async def _run_followup(job_id: str, days: int) -> None:
 
         unique_sent = list(latest_by_thread.values())
 
+        thread_results = []
         async with httpx.AsyncClient() as client:
-            thread_results = await asyncio.gather(
-                *[_fetch_thread(client, e["thread_id"]) for e in unique_sent],
-                return_exceptions=True,
-            )
+            for i, e in enumerate(unique_sent):
+                if i > 0:
+                    await asyncio.sleep(0.5)
+                try:
+                    thread_results.append(await _fetch_thread(client, e["thread_id"]))
+                except Exception as exc:
+                    thread_results.append(exc)
 
         now = datetime.now(timezone.utc)
         waiting: list[dict] = []

@@ -135,6 +135,7 @@ services:
       CRITIC_URL: http://critic:8004
       BRIEFER_URL: http://briefer:8005
       MCP_SERVER_URL: http://mcp-server:8006
+      FOLLOWUP_URL: http://followup:8008
     volumes:
       - ./config:/app/config
     depends_on:
@@ -151,6 +152,8 @@ services:
       drafter:
         condition: service_started
       critic:
+        condition: service_started
+      followup:
         condition: service_started
 
   unsubscribe:

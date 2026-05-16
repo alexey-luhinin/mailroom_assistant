@@ -64,3 +64,21 @@ export const startAnalysis = (days = 30) =>
   })
 
 export const getAnalysis = jobId => request(`/analyze/${jobId}`)
+
+export const getEmail = emailId => request(`/emails/${emailId}`)
+
+export const approveFollowupDraft = (jobId, subject, body) =>
+  request(`/approve-followup/${jobId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, body }),
+  })
+
+export const startFollowup = (days = 30) =>
+  request('/followup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days }),
+  })
+
+export const getFollowup = jobId => request(`/followup/${jobId}`)
