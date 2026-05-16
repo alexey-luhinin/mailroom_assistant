@@ -16,6 +16,8 @@ from models import (
     DraftResponse,
     Email,
     EmailSummary,
+    SentEmailSummary,
+    ThreadMessage,
 )
 
 app = FastAPI(title="MCP Server", description="Gmail API gateway — read + drafts")
@@ -38,6 +40,20 @@ async def list_emails(days: int = 1):
     emails = await asyncio.to_thread(gmail.fetch_emails, days)
     cache.set_emails(days, emails)
     return emails
+
+
+@app.get("/emails/sent", response_model=list[SentEmailSummary], response_model_by_alias=True)
+async def list_sent_emails(days: int = 30):
+    if not 1 <= days <= 30:
+        raise HTTPException(status_code=422, detail="Invalid days value. Must be between 1 and 30.")
+    emails = await asyncio.to_thread(gmail.fetch_sent_emails, days)
+    return emails
+
+
+@app.get("/threads/{thread_id}", response_model=list[ThreadMessage], response_model_by_alias=True)
+async def get_thread(thread_id: str):
+    messages = await asyncio.to_thread(gmail.fetch_thread, thread_id)
+    return messages
 
 
 @app.get("/emails/{email_id}", response_model=Email, response_model_by_alias=True)

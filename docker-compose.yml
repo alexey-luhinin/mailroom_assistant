@@ -169,6 +169,19 @@ services:
       mcp-server:
         condition: service_started
 
+  followup:
+    build: ./services/followup
+    ports:
+      - "8008:8008"
+    env_file: ./config/.env
+    environment:
+      MCP_SERVER_URL: http://mcp-server:8006
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      mcp-server:
+        condition: service_started
+
   web-ui:
     build: ./services/web-ui
     ports:

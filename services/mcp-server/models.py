@@ -43,6 +43,25 @@ class CalendarEventsResponse(BaseModel):
     events: list[CalendarEvent]
 
 
+class SentEmailSummary(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    from_: str = Field(alias="from")
+    to: str
+    subject: str
+    date: str
+    thread_id: str
+
+
+class ThreadMessage(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    from_: str = Field(alias="from")
+    date: str
+
+
 class DraftRequest(BaseModel):
     to: str
     subject: str

@@ -79,6 +79,55 @@ def fetch_email(email_id: str) -> dict | None:
     return _parse_full(raw)
 
 
+def fetch_sent_emails(days: int) -> list[dict]:
+    service = _get_service()
+    after = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp())
+    result = (
+        service.users()
+        .messages()
+        .list(userId="me", q=f"in:sent after:{after}", maxResults=200)
+        .execute()
+    )
+    messages = result.get("messages", [])
+    emails = []
+    for msg in messages:
+        try:
+            raw = (
+                service.users()
+                .messages()
+                .get(
+                    userId="me",
+                    id=msg["id"],
+                    format="metadata",
+                    metadataHeaders=["From", "To", "Subject", "Date"],
+                )
+                .execute()
+            )
+            emails.append(_parse_sent_summary(raw))
+        except HttpError:
+            continue
+    return emails
+
+
+def fetch_thread(thread_id: str) -> list[dict]:
+    service = _get_service()
+    try:
+        result = (
+            service.users()
+            .threads()
+            .get(
+                userId="me",
+                id=thread_id,
+                format="metadata",
+                metadataHeaders=["From", "Date"],
+            )
+            .execute()
+        )
+    except HttpError:
+        return []
+    return [_parse_thread_message(msg) for msg in result.get("messages", [])]
+
+
 def create_draft(to: str, subject: str, body: str, thread_id: str | None = None) -> str:
     from email.mime.text import MIMEText
     from email.utils import parseaddr
@@ -96,6 +145,27 @@ def create_draft(to: str, subject: str, body: str, thread_id: str | None = None)
 
     draft = service.users().drafts().create(userId="me", body=draft_body).execute()
     return draft["id"]
+
+
+def _parse_sent_summary(msg: dict) -> dict:
+    headers = {h["name"].lower(): h["value"] for h in msg["payload"]["headers"]}
+    return {
+        "id": msg["id"],
+        "from": headers.get("from", ""),
+        "to": headers.get("to", ""),
+        "subject": headers.get("subject", "(no subject)"),
+        "date": _parse_date(msg.get("internalDate")),
+        "thread_id": msg["threadId"],
+    }
+
+
+def _parse_thread_message(msg: dict) -> dict:
+    headers = {h["name"].lower(): h["value"] for h in msg["payload"]["headers"]}
+    return {
+        "id": msg["id"],
+        "from": headers.get("from", ""),
+        "date": _parse_date(msg.get("internalDate")),
+    }
 
 
 def _parse_summary(msg: dict) -> dict:
